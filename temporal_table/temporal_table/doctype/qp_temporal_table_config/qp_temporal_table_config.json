@@ -1,0 +1,49 @@
+{
+ "actions": [],
+ "creation": "2022-08-29 12:27:33.574949",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "password_db"
+ ],
+ "fields": [
+  {
+   "fieldname": "password_db",
+   "fieldtype": "Password",
+   "label": "password_db",
+   "reqd": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "user",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2022-09-01 12:51:03.244764",
+ "modified_by": "Administrator",
+ "module": "Temporal Table",
+ "name": "qp_temporal_table_config",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

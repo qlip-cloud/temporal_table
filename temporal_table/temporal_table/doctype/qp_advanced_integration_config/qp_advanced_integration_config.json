@@ -1,0 +1,49 @@
+{
+ "actions": [],
+ "autoname": "field:integration_key",
+ "creation": "2022-08-31 09:12:35.067309",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "integration_key",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "integration_key",
+   "fieldtype": "Data",
+   "label": "Integration Key",
+   "unique": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2022-08-31 09:12:35.067309",
+ "modified_by": "Administrator",
+ "module": "Temporal Table",
+ "name": "qp_Advanced_Integration_Config",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

@@ -1,0 +1,13 @@
+[
+ {
+  "description": "Journal Entry",
+  "docstatus": 0,
+  "doctype": "qp_Advanced_Integration_Config",
+  "integration_key": "qp_je",
+  "modified": "2022-08-31 09:50:47.725833",
+  "name": "qp_je",
+  "parent": null,
+  "parentfield": null,
+  "parenttype": null
+ }
+]
