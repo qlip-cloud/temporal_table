@@ -260,6 +260,7 @@ BEGIN
             select canti6 as balance_must_be_Debit;
             select canti7 as balance_must_be_Credit;
             select je_total_debit as debit_csv;
+            select je_total_credit as credit_csv;
             select jea_debit as debit_sum;
             select jea_credit as credit_sum;
         end if;

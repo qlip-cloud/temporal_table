@@ -13,14 +13,6 @@ import os
 
 class qp_Advanced_Integration(Document):
 
-	def validate(self):
-
-		conn_config = config_validate()
-
-		if not conn_config.user or not conn_config.password_db:
-			frappe.throw(_("Please register the connection data in the configuration: qp_temporal_table_config."))
-
-
 	@frappe.whitelist()
 	def journal_entry_import(self):
 
@@ -72,11 +64,6 @@ class qp_Advanced_Integration(Document):
 		return
 
 
-def config_validate():
-
-	return frappe.get_single('qp_temporal_table_config')
-
-
 def import_je(doc):
 	
 	try:
@@ -87,9 +74,8 @@ def import_je(doc):
 		error_info = ''
 
 		# TODO: Encontrar como desencriptar el password desde site_config.json
-		conn_config = frappe.get_single('qp_temporal_table_config')
-		user_val = conn_config.user
-		pass_val = get_decrypted_password('qp_temporal_table_config', conn_config.name, 'password_db')
+		user_val = frappe.conf.db_name
+		pass_val = frappe.conf.db_password
 		site_db = frappe.conf.db_name
 
 		# Ubicación del archivo con el resultado, se crea un archivo por documento

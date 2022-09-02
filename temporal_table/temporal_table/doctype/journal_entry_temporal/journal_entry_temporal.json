@@ -76,7 +76,7 @@
   },
   {
    "fieldname": "posting_date",
-   "fieldtype": "Data",
+   "fieldtype": "Date",
    "label": "posting_date"
   },
   {
@@ -97,7 +97,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2022-08-26 13:30:52.961203",
+ "modified": "2022-09-02 14:50:06.617149",
  "modified_by": "Administrator",
  "module": "Temporal Table",
  "name": "Journal_Entry_Temporal",
