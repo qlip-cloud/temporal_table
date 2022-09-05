@@ -5,6 +5,14 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "id",
+  "entry_type",
+  "series",
+  "company",
+  "posting_date",
+  "title",
+  "total_debit",
+  "total_credit",
   "party_type",
   "party",
   "account",
@@ -45,11 +53,51 @@
    "fieldtype": "Currency",
    "label": "credit_in_account_currency",
    "reqd": 1
+  },
+  {
+   "fieldname": "id",
+   "fieldtype": "Data",
+   "label": "id"
+  },
+  {
+   "fieldname": "entry_type",
+   "fieldtype": "Data",
+   "label": "entry_type"
+  },
+  {
+   "fieldname": "series",
+   "fieldtype": "Data",
+   "label": "series"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Data",
+   "label": "company"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "posting_date"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "title"
+  },
+  {
+   "fieldname": "total_debit",
+   "fieldtype": "Currency",
+   "label": "total_debit"
+  },
+  {
+   "fieldname": "total_credit",
+   "fieldtype": "Currency",
+   "label": "total_credit"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2022-08-25 13:37:03.403961",
+ "modified": "2022-09-02 14:50:06.617149",
  "modified_by": "Administrator",
  "module": "Temporal Table",
  "name": "Journal_Entry_Temporal",
