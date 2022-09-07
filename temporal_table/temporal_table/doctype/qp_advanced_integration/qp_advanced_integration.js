@@ -17,11 +17,15 @@ frappe.ui.form.on('qp_Advanced_Integration', {
 								frappe.msgprint(__("Error! Please see error log"))
 							}
 						}
+						frm.reload_doc();
 					}
 				});
-		
 			});
 		}
-		frm.refresh_fields();
-	},
+		if (!frm.is_new()) {
+			frm.add_custom_button(__("Reload"), function() {
+				frm.reload_doc();
+			});
+		}
+	}
 });
