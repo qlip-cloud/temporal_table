@@ -32,6 +32,7 @@ BEGIN
     DECLARE canti5 decimal(18,2);
     DECLARE canti6 int;
     DECLARE canti7 int;
+    DECLARE canti8 int;
 
     DECLARE jea_debit decimal(18,2);
     DECLARE jea_credit decimal(18,2);
@@ -132,7 +133,12 @@ BEGIN
         ) tlb
         where tlb.result > 0;
 
-    if canti1=0 && canti2=0 && canti3=0 && canti4=0 && canti5=0.00 && canti6=0 && canti7=0 then
+    Select count(*)
+        into canti8
+        FROM tabJournal_Entry_Temporal
+        WHERE debit_in_account_currency = credit_in_account_currency;
+
+    if canti1=0 && canti2=0 && canti3=0 && canti4=0 && canti5=0.00 && canti6=0 && canti7=0 && canti8=0 then
         SET jea_valid = 1;
     else
         SET jea_valid = 0;
@@ -241,6 +247,7 @@ BEGIN
             WHEN canti2 <> 0 THEN "Customer no match"
             WHEN canti3 <> 0 THEN "Supplier no match"
             WHEN canti4 <> 0 THEN "Account no match"
+            WHEN canti8 <> 0 THEN "There are lines with debit and credit having the same value."
             WHEN je_valid = 0 THEN "Header error"
             else "Balance no match" END
             into msg_valid;
@@ -253,8 +260,8 @@ BEGIN
             select je_total_debit as debit_column;
             select je_total_credit as credit_column;
             select jea_debit as total_calculado;
-            Select je_series_default as def;
-            select je_series as lectura;
+            Select je_series_default as default_serie;
+            select je_series as serie_csv;
         elseif msg_valid = "Balance no match" then
             select canti5 as dif;
             select canti6 as balance_must_be_Debit;
