@@ -3,7 +3,7 @@
 
 frappe.ui.form.on('qp_Advanced_Integration', {
 	refresh: function(frm) {
-		if (!frm.is_new()) {
+		if (!frm.is_new() && frm.doc.status !== "Completed") {
 			frm.add_custom_button(__("Do Import"), function() {
 				frappe.call({
 					doc: frm.doc,
@@ -22,5 +22,6 @@ frappe.ui.form.on('qp_Advanced_Integration', {
 		
 			});
 		}
-	}
+		frm.refresh_fields();
+	},
 });
