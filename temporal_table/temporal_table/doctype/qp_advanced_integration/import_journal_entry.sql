@@ -39,6 +39,8 @@ BEGIN
 
     DECLARE je_valid int;
     DECLARE jea_valid int;
+    DECLARE je_company_entry_type int;
+    DECLARE temporal_total_lines int;
 
     DECLARE msg_valid varchar(140);
 
@@ -49,8 +51,18 @@ BEGIN
     END;
     START TRANSACTION;
 
-    -- Validaciones Journal Entry
-    
+    -- Número de registros a procesar
+    select count(*)
+        into temporal_total_lines
+        from `tabJournal_Entry_Temporal` jet;
+
+    -- Validaciones Journal Entry en base al proceso que lanza la carga
+    select count(*)
+        into je_company_entry_type
+        from `tabJournal_Entry_Temporal` jet
+        inner join `tabqp_Advanced_Integration` adv_int
+            on adv_int.status = 'Active' and adv_int.company = jet.company and adv_int.journal_type = jet.entry_type;
+
     -- Se asume que el archivo contiene lo que se va a cargar en un asiento
     -- SELECT '** Obtener datos de cabecera' AS '** DEBUG:';
     select jet.entry_type, jet.series, jet.company, jet.posting_date, jet.title, jet.total_debit, jet.total_credit
@@ -81,7 +93,7 @@ BEGIN
     LIMIT 1;
 
     -- TODO: Incorporar validaciones cuando se genere la serie
-    if gle_fiscal_year != '' and je_total_debit = je_total_credit and je_series_default = je_series then
+    if je_company_entry_type = 1 and gle_fiscal_year != '' and je_total_debit = je_total_credit and je_series_default = je_series then
         SET je_valid = 1;
     else
         SET je_valid = 0;
@@ -240,40 +252,73 @@ BEGIN
                 order by jea.idx
             ) as drb;
 
-
+        select temporal_total_lines as total_lines_processed;
         select 1 as result;
     else
-        select CASE WHEN canti1 <> 0 THEN "Party type no match"
-            WHEN canti2 <> 0 THEN "Customer no match"
-            WHEN canti3 <> 0 THEN "Supplier no match"
-            WHEN canti4 <> 0 THEN "Account no match"
-            WHEN canti8 <> 0 THEN "There are lines with debit and credit having the same value."
-            WHEN je_valid = 0 THEN "Header error"
-            else "Balance no match" END
-            into msg_valid;
-        Select msg_valid as Error;
-        
-        if msg_valid = "Header error" then
-            select je_company as company;
-            select je_posting_date as posting_date;
-            select gle_fiscal_year as fiscal_year;
-            select je_total_debit as debit_column;
-            select je_total_credit as credit_column;
-            select jea_debit as total_calculado;
-            Select je_series_default as default_serie;
-            select je_series as serie_csv;
-        elseif msg_valid = "Balance no match" then
-            select canti5 as dif;
-            select canti6 as balance_must_be_Debit;
-            select canti7 as balance_must_be_Credit;
-            select je_total_debit as debit_csv;
-            select je_total_credit as credit_csv;
+
+        if canti1 <> 0 then
+            SELECT CONCAT(CAST(canti1 AS CHAR), " party type(s) no match.") as Party;
+        end if;
+
+        if canti2 <> 0 then
+            SELECT CONCAT(CAST(canti2 AS CHAR), " customer(s) no match.") as Customer;
+        end if;
+
+        if canti3 <> 0 then
+            SELECT CONCAT(CAST(canti3 AS CHAR), " supplier(s) no match.") as Supplier;
+        end if;
+
+        if canti4 <> 0 then
+            SELECT CONCAT(CAST(canti4 AS CHAR), " account(s) no match.") as Account;
+        end if;
+
+        if canti5 <> 0 then
+            select canti5 as `Difference in table`;
             select jea_debit as debit_sum;
             select jea_credit as credit_sum;
         end if;
 
+        if canti6 <> 0 then
+            SELECT CONCAT(CAST(canti6 AS CHAR), " accounts: Balance must be Debit") as `Balance must be Debit`;
+        end if;
+
+        if canti7 <> 0 then
+            SELECT CONCAT(CAST(canti7 AS CHAR), " accounts: Balance must be Credit") as `Balance must be Credit`;
+        end if;
+
+        if canti8 <> 0 then
+            SELECT CONCAT(CAST(canti8 AS CHAR), " lines with debit and credit having the same value.") as ` Validate value in debit and credit`;
+        end if;
+
+        if je_valid = 0 then
+
+            if je_company_entry_type != 1 then
+                Select "There is no correspondence between company/type of journal with the document that initiates the process." as `Difference with company or entry_type`;
+                select je_company as company;
+                select je_entry_type as entry_type;
+            end if;
+
+            if gle_fiscal_year = '' then
+                select je_posting_date as posting_date;
+                select gle_fiscal_year as fiscal_year;
+            end if;
+
+            if je_total_debit != je_total_credit then
+                select je_total_debit as debit_column;
+                select je_total_credit as credit_column;
+                select jea_debit as `Total calculado`;
+            end if;
+
+            if je_series_default != je_series then
+                Select je_series_default as `Default serie`;
+                select je_series as serie_csv;
+            end if;
+
+        end if;
+
         TRUNCATE TABLE  `tabJournal_Entry_Temporal`;
-        select 0 as result;
+        select temporal_total_lines as `Total lines processed`;
+        select 0 as Result;
     end if;
 
     COMMIT;

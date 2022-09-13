@@ -13,6 +13,13 @@ import os
 
 class qp_Advanced_Integration(Document):
 
+	def validate(self):
+
+		root, extension = os.path.splitext(self.import_file)
+		if extension != ".csv":
+			frappe.throw(_("Allowed extension .csv"))
+
+
 	@frappe.whitelist()
 	def journal_entry_import(self):
 
@@ -46,12 +53,22 @@ class qp_Advanced_Integration(Document):
 		if self.status == 'Active':
 			frappe.msgprint(_('Background job already running.'))
 			return
+
+		# validar procesos simultánes en la carga de asientos contables
+		simultaneous_process = frappe.db.sql("""
+				Select count(*)
+				from tabqp_Advanced_Integration
+				WHERE status = 'Active' and import_type = 'qp_je'""")[0][0] or 0
+
+		if simultaneous_process != 0:
+			frappe.msgprint(_('Other background job of Journal Entry already running.'))
+			return
 		
 		self.status = 'Active'
 		self.save(ignore_permissions=True)
 		self.reload()
 
-		frappe.msgprint(_('Backgroud Job Created. Wait for the result'))
+		frappe.msgprint(_('Background Job Created. Wait for the result'))
 
 		if self.import_type == "qp_je":
 
@@ -92,6 +109,9 @@ def import_je(doc):
 		source_qry_truncate = "TRUNCATE TABLE  `tabJournal_Entry_Temporal`;"
 		count_res, res = execute_simple_query(db_host, db_port, user_val, pass_val, site_db, source_qry_truncate, source_file)
 
+		print("res-->", res)
+		print("count_res-->", count_res)
+
 		if not res:
 			
 			abs_site_path = os.path.abspath(frappe.get_site_path())
@@ -105,13 +125,14 @@ def import_je(doc):
 			os.system(var_sql)
 			count_res, res = read_result(source_file)
 
-			# Validar el tipo de diario según lo registrado en las opciones de importación
-			# Se asume que la tabla tabJournal_Entry_Temporal tiene la información del asiento de una compañía
+			print("res-->", res)
+			print("count_res-->", count_res)
+
+			# Validar el registro de la tabla tabJournal_Entry_Temporal
 			source_qry_voucher = """<<EOF
 Select count(*)
-from tabJournal_Entry_Temporal
-WHERE company = '{0}' and entry_type = '{1}';
-EOF""".format(doc.company, doc.journal_type)
+from tabJournal_Entry_Temporal;
+EOF"""
 			var_sql = "mysql -h {0} {1} -u {2} -p{3} {4} > {5} {6}".format(
 				db_host, db_port, user_val, pass_val, site_db, source_file_upd, source_qry_voucher)
 			print("var_sql-->", var_sql)
@@ -123,29 +144,20 @@ EOF""".format(doc.company, doc.journal_type)
 
 			if not res and res_upd:
 
-				# Verificar registro de Journal_Entry_Temporal
-				source_qry_status = "select count(*) from tabJournal_Entry_Temporal;"
-				count_res, data = execute_simple_query(db_host, db_port, user_val, pass_val, site_db, source_qry_status, source_file, sql_detail=True)
+				# Se paramertiza ubicación del archivo con el qry
+				source_procedure = os.path.join(abs_site_path, os.path.dirname(__file__), 'import_journal_entry.sql')
 
-				if count_res:
-					# Se paramertiza ubicación del archivo con el qry
-					source_procedure = os.path.join(abs_site_path, os.path.dirname(__file__), 'import_journal_entry.sql')
+				var_sql = "mysql -h {0} {1} -u {2} -p{3} {4} < {5} > {6}".format(
+					db_host, db_port, user_val, pass_val, site_db, source_procedure, source_file)
+				print("var_sql-->", var_sql)
+				os.system(var_sql)
+				sp_result, res = read_result_detail(source_file, sp=True)
 
-					var_sql = "mysql -h {0} {1} -u {2} -p{3} {4} < {5} > {6}".format(
-						db_host, db_port, user_val, pass_val, site_db, source_procedure, source_file)
-					print("var_sql-->", var_sql)
-					os.system(var_sql)
-					sp_result, res = read_result_detail(source_file, sp=True)
-
-					v_error = not sp_result
-
-				else:
-					error_info = "Table tabJournal_Entry_Temporal is empty"
-					v_error = True
+				v_error = not sp_result
 
 			else:
 
-				error_info = res if res else "Entry Type is diferent to Type Journal"
+				error_info = res if res else "File upload failed. Check the format or content used for the upload."
 				v_error = True
 		
 		else:
@@ -255,4 +267,3 @@ def read_result_detail(res_file, sp=False):
 		pass
 
 	return result, data
-
