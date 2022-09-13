@@ -253,23 +253,24 @@ BEGIN
             ) as drb;
 
         select temporal_total_lines as total_lines_processed;
+        select je_name as document;
         select 1 as result;
     else
 
         if canti1 <> 0 then
-            SELECT CONCAT(CAST(canti1 AS CHAR), " party type(s) no match.") as Party;
+            SELECT CONCAT(CAST(canti1 AS CHAR), " party type(s) no match. Is case sensitive.") as Party;
         end if;
 
         if canti2 <> 0 then
-            SELECT CONCAT(CAST(canti2 AS CHAR), " customer(s) no match.") as Customer;
+            SELECT CONCAT(CAST(canti2 AS CHAR), " customer(s) no match. Check if the file is in UTF-8 format. Is case sensitive too.") as Customer;
         end if;
 
         if canti3 <> 0 then
-            SELECT CONCAT(CAST(canti3 AS CHAR), " supplier(s) no match.") as Supplier;
+            SELECT CONCAT(CAST(canti3 AS CHAR), " supplier(s) no match. Check if the file is in UTF-8 format. Is case sensitive too.") as Supplier;
         end if;
 
         if canti4 <> 0 then
-            SELECT CONCAT(CAST(canti4 AS CHAR), " account(s) no match.") as Account;
+            SELECT CONCAT(CAST(canti4 AS CHAR), " account(s) no match. Check if the file is in UTF-8 format. Is case sensitive too.") as Account;
         end if;
 
         if canti5 <> 0 then

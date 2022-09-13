@@ -255,7 +255,7 @@ def read_result_detail(res_file, sp=False):
 			lines = data.splitlines()
 			if sp:
 				print("data", data)
-				result = True if len(lines) == 2 and lines[0] == 'result' and int(lines[1]) == 1 else False
+				result = True if len(lines) == 6 and lines[0] == 'total_lines_processed' and int(lines[1]) > 0 and lines[2] == 'document' and lines[3] != ''  and lines[4] == 'result' and int(lines[5]) == 1 else False
 			else:
 				print("lines --->", lines)
 				result = True if len(lines) == 2 and lines[0] == 'count(*)' and int(lines[1]) > 0 else False
