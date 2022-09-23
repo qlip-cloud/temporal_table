@@ -7,6 +7,10 @@ from frappe import _
 
 from frappe.utils.password import get_decrypted_password
 from frappe.utils import now, make_esc
+from frappe.utils.xlsxutils import (
+	read_xlsx_file_from_attached_file,
+	read_xls_file_from_attached_file,
+)
 
 import os
 
@@ -16,8 +20,11 @@ class qp_Advanced_Integration(Document):
 	def validate(self):
 
 		root, extension = os.path.splitext(self.import_file)
-		if extension != ".csv":
+		if extension != ".csv" and self.import_type == "qp_je":
 			frappe.throw(_("Allowed extension .csv"))
+		
+		if extension not in (".xlsx", ".xls") and self.import_type == "qp_tso":
+			frappe.throw(_("Allowed extension .xlsx"))
 
 
 	@frappe.whitelist()
@@ -74,6 +81,10 @@ class qp_Advanced_Integration(Document):
 
 			frappe.enqueue(import_je, doc=self, queue='long', is_async=True, timeout=54000)
 
+		if self.import_type == "qp_tso":
+
+			frappe.enqueue(import_tso, doc=self, queue='long', is_async=True, timeout=54000)
+		
 		else:
 
 			frappe.msgprint(_('Import type undefined'))
@@ -267,3 +278,184 @@ def read_result_detail(res_file, sp=False):
 		pass
 
 	return result, data
+
+
+def import_tso(doc):
+
+	
+	v_start_date = now()
+	v_error = False
+	error_info = ''
+	
+	
+	try:
+
+		res = load_tmp_sales_order(doc)
+
+		load_sales_order(doc) 
+
+	except Exception as error:
+
+		v_error = True
+
+		frappe.log_error(message=frappe.get_traceback(), title="import_tso")
+
+		pass
+
+	try:
+
+		doc.append('import_list', {
+				"status": "Failed" if v_error else "Completed",
+				"start_date": v_start_date,
+				"result_message": "View ERP Log or worker Log" if v_error else "Successful",
+				"finish_date": now()
+			})
+		doc.status = "Failed" if v_error else "Completed"
+		doc.save(ignore_permissions=True)
+
+	except Exception as error:
+
+		frappe.log_error(message=frappe.get_traceback(), title="import_tso_result")
+
+		pass
+
+	return
+
+
+def load_tmp_sales_order(doc):
+
+	indx = 13
+	data = []
+
+	frappe.db.sql("delete from `tabqp_tmp_sales_orders` where origin_process = '{0}'".format(doc.name))
+
+	up_file = frappe.get_doc("File", {"file_url": doc.import_file})
+	parts = up_file.get_extension()
+	extension = parts[1]
+	content = up_file.get_content()
+	extension = extension.lstrip(".")
+
+	if extension == "xlsx":
+		data = read_xlsx_file_from_attached_file(fcontent=content)
+	elif extension == "xls":
+		data = read_xls_file_from_attached_file(content)
+
+	row_header = data[0][indx:]
+	content_list = data[1:]
+
+	for i in range(len(row_header)):
+		for row_item in content_list:
+
+			obj_data = {
+
+				"company": "" if row_item[indx-1] == "None" else row_item[indx-13],
+				"customer": "" if row_item[indx-1] == "None" else row_item[indx-12],
+				"store": "" if row_item[indx-1] == "None" else row_item[indx-11],
+				"product": "" if row_item[indx-1] == "None" else row_item[indx-10],
+				"category": "" if row_item[indx-1] == "None" else row_item[indx-9],
+				"price": "" if row_item[indx-1] == "None" else row_item[indx-8],
+				"discount": "" if row_item[indx-1] == "None" else row_item[indx-7],
+				"currency": "" if row_item[indx-1] == "None" else row_item[indx-6],
+				"uom": "" if row_item[indx-1] == "None" else row_item[indx-5],
+				"shipping_address": "" if row_item[indx-1] == "None" else row_item[indx-4],
+				"reference_1": "" if row_item[indx-1] == "None" else row_item[indx-3],
+				"reference_2": "" if row_item[indx-1] == "None" else row_item[indx-2],
+				"reference_3": "" if row_item[indx-1] == "None" else row_item[indx-1],
+				"year_week": row_header[i],
+				"product_qty": row_item[i+indx],
+				"origin_process": doc.name,
+				"doctype": "qp_tmp_sales_orders"
+			}
+
+			temp_sale_order =  frappe.get_doc(obj_data)
+
+			temp_sale_order.insert(ignore_permissions=True)
+
+
+def load_sales_order(doc):
+
+	sql_str = """
+		select company, category, reference_1, year_week
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}'
+		group by  company, category, reference_1, year_week
+		order by company, category, reference_1, year_week
+	""".format(origin_process=doc.name)
+
+	data = frappe.db.sql(sql_str, as_dict=1)
+
+	print("Inicio nro total cabecera", len(data))
+
+	for so_header in data:
+
+		sql_str = """
+			select company, customer, store, product, category, price, discount, currency, uom, 
+			shipping_address, reference_1, reference_2, reference_3, year_week, product_qty
+			from tabqp_tmp_sales_orders
+			where origin_process = '{origin_process}' and company = '{company}'
+			and category = '{category}' and reference_1 = '{reference_1}' and year_week = '{year_week}'
+			order by company, category, reference_1, year_week, product
+		""".format(origin_process=doc.name, company=so_header.get('company'), category=so_header.get('category'),
+			reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'))
+
+		item_data = frappe.db.sql(sql_str, as_dict=1)
+
+		order_items = []
+
+		print("Inicio nro total item", len(item_data))
+
+		for item in item_data:
+
+			prod_id = item.get('product')
+
+			prod_name = frappe.db.get_value("Item", prod_id, "item_name")
+
+			prod_uom = frappe.db.get_value("Item", prod_id, "stock_uom")
+			prod_uom = item.get('uom') or prod_uom
+
+			uom_from_list = __get_uom_from_list(prod_id, prod_uom)
+			item_uom_conv = uom_from_list and uom_from_list[0]['conversion_factor'] or 1
+
+			# TODO: guardar categoria -- "description": prod_name,
+			# TODO: guardar reference_1
+			# TODO: guardar customer, store
+			# TODO: Validar Moneda - producto - uom - compañía - cantidad > 0 etc
+			order_items.append({
+				"item_code": prod_id,
+				"item_name": prod_name,
+				"description": 'CAT: {0} - REF: {1} - BODEGA: {2}'.format(
+					so_header.get('category'), so_header.get('reference_1'), item.get('store')), 
+				"rate": item.get('price'),
+				"qty": item.get('product_qty'),
+				"stock_uom": prod_uom,
+				"conversion_factor": item_uom_conv
+			})
+
+		obj_data = {
+			"customer": so_header.get('company'),
+			"delivery_date": "2022-12-01",
+			"year_week": so_header.get('year_week'),
+			"items": order_items,
+			"doctype": "Sales Order"
+		}
+
+		print("obj_data--->", obj_data)
+
+		sale_order = frappe.get_doc(obj_data)
+
+		sale_order.insert(ignore_permissions=True)
+
+
+def __get_uom_from_list(item_name, item_uom):
+
+	return frappe.db.get_list('UOM Conversion Detail',
+		filters={
+			'parenttype': 'Item',
+			'parentfield': 'uoms',
+			'parent': item_name,
+			'uom': item_uom
+		},
+		fields=['uom', 'conversion_factor'],
+		order_by='conversion_factor desc',
+	)
+
