@@ -6,13 +6,15 @@ from frappe.model.document import Document
 from frappe import _
 
 from frappe.utils.password import get_decrypted_password
-from frappe.utils import now, make_esc
+from frappe.utils import now, make_esc, flt
 from frappe.utils.xlsxutils import (
 	read_xlsx_file_from_attached_file,
 	read_xls_file_from_attached_file,
 )
 
 import os
+
+import datetime
 
 
 class qp_Advanced_Integration(Document):
@@ -388,6 +390,10 @@ def load_sales_order(doc):
 
 	for so_header in data:
 
+		delivery_date = __transform_year_week(so_header.get('year_week'))
+
+		print("delivery_date -->", delivery_date)
+
 		sql_str = """
 			select company, customer, store, product, category, price, discount, currency, uom, 
 			shipping_address, reference_1, reference_2, reference_3, year_week, product_qty
@@ -416,25 +422,37 @@ def load_sales_order(doc):
 			uom_from_list = __get_uom_from_list(prod_id, prod_uom)
 			item_uom_conv = uom_from_list and uom_from_list[0]['conversion_factor'] or 1
 
-			# TODO: guardar categoria -- "description": prod_name,
-			# TODO: guardar reference_1
-			# TODO: guardar customer, store
-			# TODO: Validar Moneda - producto - uom - compañía - cantidad > 0 etc
+			company_abbr = frappe.db.get_value("Company", doc.company, "abbr")
+
+			item_disc = item.get('discount')
+			item_amount = item.get('price')
+
+			# TODO: guardar customer
+			# TODO: Validar categoria - Moneda - producto - uom - compañía - cantidad > 0 etc
+			# Incorporar descuento
+			# "discount_percentage": item.get('discount'),
+			# "discount_amount": flt(item_amount) - (flt(item_amount) * flt(item_disc)/100)
 			order_items.append({
 				"item_code": prod_id,
 				"item_name": prod_name,
-				"description": 'CAT: {0} - REF: {1} - BODEGA: {2}'.format(
-					so_header.get('category'), so_header.get('reference_1'), item.get('store')), 
-				"rate": item.get('price'),
+				"description": 'PROD: {0} - CAT: {1}'.format(prod_id, so_header.get('category')),
+				"rate": item_amount,
 				"qty": item.get('product_qty'),
 				"stock_uom": prod_uom,
-				"conversion_factor": item_uom_conv
+				"conversion_factor": item_uom_conv,
+				"delivery_date": delivery_date,
+				"warehouse": "{} - {}".format(item.get('store'), company_abbr),
 			})
 
 		obj_data = {
+			"naming_series": 'SO-.{qp_year_week}.-',
 			"customer": so_header.get('company'),
-			"delivery_date": "2022-12-01",
-			"year_week": so_header.get('year_week'),
+			"delivery_date": delivery_date,
+			"qp_year_week": so_header.get('year_week'),
+			"qp_reference1": item.get('reference_1'),
+			"qp_reference2": item.get('reference_2'),
+			"qp_reference3": item.get('reference_3'),
+			"qp_origin_process": doc.name,
 			"items": order_items,
 			"doctype": "Sales Order"
 		}
@@ -459,3 +477,12 @@ def __get_uom_from_list(item_name, item_uom):
 		order_by='conversion_factor desc',
 	)
 
+
+def __transform_year_week(year_week):
+
+	date_content = year_week.split('-')
+
+	param_year = "{0}-W{1}".format(date_content[0], date_content[1])
+
+	# primer lunes de la semana
+	return datetime.datetime.strptime(param_year + '-1', "%Y-W%W-%w")
