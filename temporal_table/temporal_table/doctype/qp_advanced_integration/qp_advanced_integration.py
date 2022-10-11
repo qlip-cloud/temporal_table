@@ -16,6 +16,8 @@ import os
 
 import datetime
 
+from qp_valleyfloral_front.qp_valleyfloral_front.uses_cases.shipping_method.shipping_method_list import __get_customer
+
 
 class qp_Advanced_Integration(Document):
 
@@ -103,7 +105,6 @@ def import_je(doc):
 		v_error = False
 		error_info = ''
 
-		# TODO: Encontrar como desencriptar el password desde site_config.json
 		user_val = frappe.conf.db_name
 		pass_val = frappe.conf.db_password
 		site_db = frappe.conf.db_name
@@ -206,6 +207,7 @@ EOF"""
 
 	return
 
+
 def execute_simple_query(db_host, db_port, user_val, pass_val, site_db, source_qry, source_file, sql_detail = False):
 	
 	var_sql = "mysql -h {0} {1} -u {2} -p{3} {4} -e '{5}' > {6}".format(
@@ -215,8 +217,6 @@ def execute_simple_query(db_host, db_port, user_val, pass_val, site_db, source_q
 	count_res, res = read_result_detail(source_file) if sql_detail else read_result(source_file)
 
 	return count_res, res
-
-
 
 
 def load_qry_journal_entry_temporal(je_file_path):
@@ -298,6 +298,8 @@ def import_tso(doc):
 
 	except Exception as error:
 
+		frappe.db.rollback()
+
 		v_error = True
 
 		frappe.log_error(message=frappe.get_traceback(), title="import_tso")
@@ -376,6 +378,12 @@ def load_tmp_sales_order(doc):
 
 def load_sales_order(doc):
 
+	validation_result, validation_msg = validate_so2save(doc.name)
+
+	if validation_result == False:
+
+		raise Exception("Validation of required fields: {}".format(validation_msg))
+
 	sql_str = """
 		select company, category, reference_1, year_week
 		from tabqp_tmp_sales_orders
@@ -386,13 +394,9 @@ def load_sales_order(doc):
 
 	data = frappe.db.sql(sql_str, as_dict=1)
 
-	print("Inicio nro total cabecera", len(data))
-
 	for so_header in data:
 
 		delivery_date = __transform_year_week(so_header.get('year_week'))
-
-		print("delivery_date -->", delivery_date)
 
 		sql_str = """
 			select company, customer, store, product, category, price, discount, currency, uom, 
@@ -408,9 +412,20 @@ def load_sales_order(doc):
 
 		order_items = []
 
-		print("Inicio nro total item", len(item_data))
+		item_customer = ""
+
+		item_currency = ""
 
 		for item in item_data:
+
+			# Se asume que es un archivo por cliente
+			if not item_customer:
+
+				item_customer = __get_customer_name(item.get('customer') or "")
+
+			if not item_currency:
+
+				item_currency = item.get("currency") or ""
 
 			prod_id = item.get('product')
 
@@ -427,11 +442,12 @@ def load_sales_order(doc):
 			item_disc = item.get('discount')
 			item_amount = item.get('price')
 
-			# TODO: guardar customer
-			# TODO: Validar categoria - Moneda - producto - uom - compañía - cantidad > 0 etc
+			# TODO: Validar y Registrar dirección de envío
+			# TODO: Validar categoria -  producto - uom - compañía - cantidad > 0 etc
 			# Incorporar descuento
 			# "discount_percentage": item.get('discount'),
 			# "discount_amount": flt(item_amount) - (flt(item_amount) * flt(item_disc)/100)
+			# para descuento se debe verificar que otro campo se debe registrar el descuento
 			order_items.append({
 				"item_code": prod_id,
 				"item_name": prod_name,
@@ -444,10 +460,13 @@ def load_sales_order(doc):
 				"warehouse": "{} - {}".format(item.get('store'), company_abbr),
 			})
 
+		# Se configura por defecto en la orden de venta, así que se omite:
+		# "naming_series": 'SO-.{qp_year_week}.-.#######',
 		obj_data = {
-			"naming_series": 'SO-.{qp_year_week}.-',
-			"customer": so_header.get('company'),
+			"company": so_header.get('company'),
+			"customer": item_customer,
 			"delivery_date": delivery_date,
+			"currency": item_currency,
 			"qp_year_week": so_header.get('year_week'),
 			"qp_reference1": item.get('reference_1'),
 			"qp_reference2": item.get('reference_2'),
@@ -462,6 +481,35 @@ def load_sales_order(doc):
 		sale_order = frappe.get_doc(obj_data)
 
 		sale_order.insert(ignore_permissions=True)
+
+
+def validate_so2save(doc_name):
+
+	msg_res = ""
+
+	# Validar campos
+
+	# Validar que sea un mismo tipo de moneda por sales order a crear
+	sql_str = """
+		Select count(currency) as curr from (
+			select company, category, reference_1, year_week, currency
+			from tabqp_tmp_sales_orders
+			where origin_process = '{origin_process}'
+			group by  company, category, reference_1, year_week, currency 
+		) as dbtbl
+		group by company, category, reference_1, year_week
+		having curr > 1
+	""".format(origin_process=doc_name)
+
+	data = frappe.db.sql(sql_str, as_dict=1)
+
+	print("data", data)
+
+	if data:
+
+		msg_res = _("There is different currency for a document")
+
+	return True, msg_res
 
 
 def __get_uom_from_list(item_name, item_uom):
@@ -486,3 +534,17 @@ def __transform_year_week(year_week):
 
 	# primer lunes de la semana
 	return datetime.datetime.strptime(param_year + '-1', "%Y-W%W-%w")
+
+
+def __get_customer_name(so_header_customer):
+
+	if so_header_customer:
+
+		item_customer = so_header_customer
+
+	else:
+
+		customer = __get_customer()
+		item_customer = customer.name
+	
+	return item_customer
