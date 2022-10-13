@@ -16,7 +16,7 @@ import os
 
 import datetime
 
-from qp_valleyfloral_front.qp_valleyfloral_front.uses_cases.shipping_method.shipping_method_list import __get_customer
+from erpnext.controllers.website_list_for_contact import get_customers_suppliers
 
 
 class qp_Advanced_Integration(Document):
@@ -602,3 +602,19 @@ def __get_customer_name(so_header_customer):
 		item_customer = customer.name
 	
 	return item_customer
+
+
+def __get_customer():
+
+    user = frappe.session.user
+
+    # find party for this contact
+    customers, suppliers = get_customers_suppliers('Sales Order', user)
+
+    if len(customers) < 1:
+
+        frappe.throw(_("User does not have an associated client"))
+
+    customer = frappe.get_doc('Customer', customers[0])
+
+    return customer
