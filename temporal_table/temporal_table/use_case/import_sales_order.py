@@ -80,30 +80,32 @@ def load_tmp_sales_order(doc):
 	for i in range(len(row_header)):
 		for row_item in content_list:
 
-			obj_data = {
+			if row_item[i+indx]:
 
-				"company": "" if row_item[indx-1] == "None" else row_item[indx-13],
-				"customer": "" if row_item[indx-1] == "None" else row_item[indx-12],
-				"store": "" if row_item[indx-1] == "None" else row_item[indx-11],
-				"product": "" if row_item[indx-1] == "None" else row_item[indx-10],
-				"category": "" if row_item[indx-1] == "None" else row_item[indx-9],
-				"price": "" if row_item[indx-1] == "None" else row_item[indx-8],
-				"discount": "" if row_item[indx-1] == "None" else row_item[indx-7],
-				"currency": "" if row_item[indx-1] == "None" else row_item[indx-6],
-				"uom": "" if row_item[indx-1] == "None" else row_item[indx-5],
-				"shipping_address": "" if row_item[indx-1] == "None" else row_item[indx-4],
-				"reference_1": "" if row_item[indx-1] == "None" else row_item[indx-3],
-				"reference_2": "" if row_item[indx-1] == "None" else row_item[indx-2],
-				"reference_3": "" if row_item[indx-1] == "None" else row_item[indx-1],
-				"year_week": row_header[i],
-				"product_qty": row_item[i+indx],
-				"origin_process": doc.name,
-				"doctype": "qp_tmp_sales_orders"
-			}
+				obj_data = {
 
-			temp_sale_order =  frappe.get_doc(obj_data)
+					"company": "" if row_item[indx-1] == "None" else row_item[indx-13],
+					"customer": "" if row_item[indx-1] == "None" else row_item[indx-12],
+					"store": "" if row_item[indx-1] == "None" else row_item[indx-11],
+					"product": "" if row_item[indx-1] == "None" else row_item[indx-10],
+					"category": "" if row_item[indx-1] == "None" else row_item[indx-9],
+					"price": "" if row_item[indx-1] == "None" else row_item[indx-8],
+					"discount": "" if row_item[indx-1] == "None" else row_item[indx-7],
+					"currency": "" if row_item[indx-1] == "None" else row_item[indx-6],
+					"uom": "" if row_item[indx-1] == "None" else row_item[indx-5],
+					"shipping_address": "" if row_item[indx-1] == "None" else row_item[indx-4],
+					"reference_1": "" if row_item[indx-1] == "None" else row_item[indx-3],
+					"reference_2": "" if row_item[indx-1] == "None" else row_item[indx-2],
+					"reference_3": "" if row_item[indx-1] == "None" else row_item[indx-1],
+					"year_week": row_header[i],
+					"product_qty": row_item[i+indx],
+					"origin_process": doc.name,
+					"doctype": "qp_tmp_sales_orders"
+				}
 
-			temp_sale_order.insert(ignore_permissions=True)
+				temp_sale_order =  frappe.get_doc(obj_data)
+
+				temp_sale_order.insert(ignore_permissions=True)
 
 
 def load_sales_order(doc):
