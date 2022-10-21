@@ -16,12 +16,13 @@ class qp_Advanced_Integration(Document):
 
 	def validate(self):
 
-		root, extension = os.path.splitext(self.import_file)
-		if extension != ".csv" and self.import_type == "qp_je":
-			frappe.throw(_("Allowed extension .csv"))
-		
-		if extension not in (".xlsx", ".xls") and self.import_type == "qp_tso":
-			frappe.throw(_("Allowed extension .xlsx"))
+		if self.import_type == "qp_je":
+			if not self.import_file:
+				frappe.throw(_("Please attach file to import"))
+
+			root, extension = os.path.splitext(self.import_file)
+			if extension != ".csv":
+				frappe.throw(_("Allowed extension .csv"))
 
 
 	@frappe.whitelist()
@@ -48,6 +49,13 @@ class qp_Advanced_Integration(Document):
 		if not self.import_file or not self.company:
 			frappe.msgprint(_('Please attach file to import or select company'))
 			return
+
+		# Validar la extensión del archivo para la carga de sale ordes
+		if self.import_type == "qp_tso":
+			root, extension = os.path.splitext(self.import_file)
+			if extension not in (".xlsx", ".xls"):
+				frappe.msgprint(_("Allowed extension .xlsx or .xls"))
+				return
 
 		# Validar que haya un tipo de diario selecionado si se va a importar un Journal Entry
 		if self.import_type == "qp_je" and not self.journal_type:
