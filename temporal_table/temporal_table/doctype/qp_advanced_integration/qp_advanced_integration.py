@@ -80,15 +80,17 @@ class qp_Advanced_Integration(Document):
 		self.save(ignore_permissions=True)
 		self.reload()
 
-		frappe.msgprint(_('Background Job Created. Wait for the result'))
-
 		if self.import_type == "qp_je":
 
 			frappe.enqueue(import_je, doc=self, queue='long', is_async=True, timeout=54000)
 
+			frappe.msgprint(_('Background Job Created. Wait for the result'))
+
 		elif self.import_type == "qp_tso":
 
 			frappe.enqueue(import_tso, doc=self, queue='long', is_async=True, timeout=54000)
+
+			frappe.msgprint(_('Sales order request created. Wait for the result'))
 		
 		else:
 

@@ -22,7 +22,7 @@ def import_tso(doc):
 	
 	try:
 
-		res = load_tmp_sales_order(doc)
+		load_tmp_sales_order(doc)
 
 		load_sales_order(doc) 
 
