@@ -35,6 +35,7 @@ app_license = "MIT"
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
+doctype_js = {"Company" : "public/js/company.js"}
 
 # Home Pages
 # ----------
@@ -172,4 +173,11 @@ user_data_fields = [
 # auth_hooks = [
 # 	"temporal_table.auth.validate"
 # ]
+
+# fixtures
+# -----------------------------------------
+
+fixtures = [
+	{"doctype": "qp_Advanced_Integration_Config"}
+]
 
