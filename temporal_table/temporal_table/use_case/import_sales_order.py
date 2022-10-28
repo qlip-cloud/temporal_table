@@ -80,7 +80,7 @@ def load_tmp_sales_order(doc):
 	for i in range(len(row_header)):
 		for row_item in content_list:
 
-			if row_item[i+indx]:
+			if row_item[i+indx] and int(row_item[i+indx]) > 0:
 
 				obj_data = {
 
@@ -186,9 +186,7 @@ def load_sales_order(doc):
 			price_default = price_default and price_default[0]['price_list_rate'] or 0
 			item_amount = item.get('price') or price_default
 
-			# TODO: Validar cantidad > 0 
-
-			order_items.append({
+			data_so = {
 				"item_code": prod_id,
 				"item_name": prod_name,
 				"description": 'PROD: {0} - CAT: {1}'.format(prod_id, so_header.get('category')),
@@ -201,8 +199,13 @@ def load_sales_order(doc):
 				"discount_amount": flt(item_amount) * flt(item_disc)/100,
 				"conversion_factor": item_uom_conv,
 				"delivery_date": delivery_date,
-				"warehouse": "{} - {}".format(item.get('store'), company_abbr),
-			})
+			}
+
+			if item.get('store'):
+
+				data_so['warehouse'] = "{} - {}".format(item.get('store'), company_abbr)
+
+			order_items.append(data_so)
 
 		obj_data = {
 			"company": so_header.get('company'),
