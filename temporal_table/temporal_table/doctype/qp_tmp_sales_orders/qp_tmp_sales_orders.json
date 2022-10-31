@@ -1,0 +1,149 @@
+{
+ "actions": [],
+ "creation": "2022-09-22 15:09:50.851267",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "customer",
+  "store",
+  "product",
+  "category",
+  "price",
+  "discount",
+  "currency",
+  "uom",
+  "shipping_address",
+  "reference_1",
+  "reference_2",
+  "reference_3",
+  "year_week",
+  "product_qty",
+  "origin_process"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Data",
+   "label": "customer"
+  },
+  {
+   "fieldname": "store",
+   "fieldtype": "Data",
+   "label": "store"
+  },
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "product",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "category",
+   "options": "Item Group",
+   "reqd": 1
+  },
+  {
+   "fieldname": "price",
+   "fieldtype": "Currency",
+   "label": "price",
+   "options": "currency"
+  },
+  {
+   "fieldname": "discount",
+   "fieldtype": "Currency",
+   "label": "discount",
+   "options": "currency"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "uom",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "shipping_address",
+   "fieldtype": "Data",
+   "label": "shipping_address"
+  },
+  {
+   "fieldname": "reference_1",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "reference_1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_2",
+   "fieldtype": "Data",
+   "label": "reference_2"
+  },
+  {
+   "fieldname": "reference_3",
+   "fieldtype": "Data",
+   "label": "reference_3"
+  },
+  {
+   "fieldname": "year_week",
+   "fieldtype": "Data",
+   "label": "year_week",
+   "reqd": 1
+  },
+  {
+   "fieldname": "product_qty",
+   "fieldtype": "Float",
+   "label": "product_qty",
+   "reqd": 1
+  },
+  {
+   "fieldname": "origin_process",
+   "fieldtype": "Link",
+   "label": "origin_process",
+   "options": "qp_Advanced_Integration"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2022-10-12 15:49:54.813670",
+ "modified_by": "Administrator",
+ "module": "Temporal Table",
+ "name": "qp_tmp_sales_orders",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
