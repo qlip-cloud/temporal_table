@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "autoname": "field:adv_int",
  "creation": "2022-10-28 11:26:39.533850",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -13,7 +14,8 @@
    "fieldname": "adv_int",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "adv_int"
+   "label": "adv_int",
+   "unique": 1
   },
   {
    "fieldname": "status",
@@ -24,7 +26,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2022-10-28 13:43:23.365444",
+ "modified": "2022-10-31 12:32:15.243332",
  "modified_by": "Administrator",
  "module": "Temporal Table",
  "name": "qp_Adv_Int_Process_Status",
@@ -39,6 +41,54 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Customer",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
    "share": 1,
    "write": 1
   }

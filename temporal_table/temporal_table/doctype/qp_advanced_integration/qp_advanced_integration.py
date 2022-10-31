@@ -47,34 +47,29 @@ class qp_Advanced_Integration(Document):
 
 		# Validar que haya un adjunto
 		if not self.import_file or not self.company:
-			frappe.msgprint(_('Please attach file to import or select company'))
-			return
+			frappe.throw(_("Please attach file to import or select company"))
 
 		# Validar la extensión del archivo para la carga de sale ordes
 		if self.import_type == "qp_tso":
 			root, extension = os.path.splitext(self.import_file)
 			if extension not in (".xlsx", ".xls"):
-				frappe.msgprint(_("Allowed extension .xlsx or .xls"))
-				return
+				frappe.throw(_("Allowed extension .xlsx or .xls"))
 
 		# Validar que haya un tipo de diario selecionado si se va a importar un Journal Entry
 		if self.import_type == "qp_je" and not self.journal_type:
-			frappe.msgprint(_('Please select Journal Type.'))
-			return
+			frappe.throw(_("Please select Journal Type."))
 
 		if self.status == 'Active':
-			frappe.msgprint(_('Background job already running.'))
-			return
+			frappe.throw(_("Background job already running."))
 
-		# validar procesos simultánes en la carga de asientos contables
+		# validar procesos simultáneos
 		simultaneous_process = frappe.db.sql("""
 				Select count(*)
 				from tabqp_Advanced_Integration
-				WHERE status = 'Active' and import_type = 'qp_je'""")[0][0] or 0
+				WHERE status = 'Active' and import_type = '{}'""".format(self.import_type))[0][0] or 0
 
 		if simultaneous_process != 0:
-			frappe.msgprint(_('Other background job of Journal Entry already running.'))
-			return
+			frappe.throw(_("Other background job of Journal Entry already running."))
 		
 		self.status = 'Active'
 		self.save(ignore_permissions=True)
