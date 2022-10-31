@@ -66,7 +66,7 @@ class qp_Advanced_Integration(Document):
 		simultaneous_process = frappe.db.sql("""
 				Select count(*)
 				from tabqp_Advanced_Integration
-				WHERE status = 'Active' and import_type = '{}'""".format(self.import_type))[0][0] or 0
+				WHERE status = 'Active' and import_type = 'qp_je'""")[0][0] or 0
 
 		if simultaneous_process != 0:
 			frappe.throw(_("Other background job of Journal Entry already running."))
