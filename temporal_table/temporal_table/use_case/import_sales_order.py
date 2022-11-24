@@ -89,10 +89,10 @@ def load_tmp_sales_order(doc):
 					"store": "" if row_item[indx-1] == "None" else row_item[indx-11],
 					"product": "" if row_item[indx-1] == "None" else row_item[indx-10],
 					"category": "" if row_item[indx-1] == "None" else row_item[indx-9],
-					"price": "" if row_item[indx-1] == "None" else row_item[indx-8],
-					"discount": "" if row_item[indx-1] == "None" else row_item[indx-7],
-					"currency": "" if row_item[indx-1] == "None" else row_item[indx-6],
-					"uom": "" if row_item[indx-1] == "None" else row_item[indx-5],
+					"uom": "" if row_item[indx-1] == "None" else row_item[indx-8],
+					"price": "" if row_item[indx-1] == "None" else row_item[indx-7],
+					"discount": "" if row_item[indx-1] == "None" else row_item[indx-6],
+					"currency": "" if row_item[indx-1] == "None" else row_item[indx-5],
 					"shipping_address": "" if row_item[indx-1] == "None" else row_item[indx-4],
 					"reference_1": "" if row_item[indx-1] == "None" else row_item[indx-3],
 					"reference_2": "" if row_item[indx-1] == "None" else row_item[indx-2],
@@ -131,7 +131,7 @@ def load_sales_order(doc):
 		delivery_date = __transform_year_week(so_header.get('year_week'))
 
 		sql_str = """
-			select company, customer, store, product, category, price, discount, currency, uom, 
+			select company, customer, store, product, category, uom, price, discount, currency,
 			shipping_address, reference_1, reference_2, reference_3, year_week, product_qty
 			from tabqp_tmp_sales_orders
 			where origin_process = '{origin_process}' and company = '{company}'
@@ -216,6 +216,7 @@ def load_sales_order(doc):
 			"qp_reference1": item.get('reference_1'),
 			"qp_reference2": item.get('reference_2'),
 			"qp_reference3": item.get('reference_3'),
+			"qp_category": so_header.get('category'),
 			"qp_origin_process": doc.name,
 			"items": order_items,
 			"doctype": "Sales Order"
