@@ -210,6 +210,11 @@ def load_sales_order(doc):
 
 				so_obj.shipping_address_name = item_shipping_address
 
+			# Guardar historial de cambios del proceso
+			historial_obj = prepare_process_history(so_obj.qp_origin_process)
+
+			so_obj.append('process_history', historial_obj)
+
 			so_obj.qp_origin_process = doc.name
 
 			so_obj.qp_gp_status = 'registered'
@@ -335,6 +340,16 @@ def search_sales_order(item_customer, so_header):
 	rec_so = frappe.db.sql(so_sql, as_dict=1)
 
 	return rec_so
+
+
+def prepare_process_history(doc_process):
+
+	detail = {
+		"date": now(),
+		"origin_process": doc_process
+	}
+
+	return detail
 
 
 def __get_invalid_week_number(doc_name):
