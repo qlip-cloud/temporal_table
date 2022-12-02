@@ -15,6 +15,8 @@ from erpnext.controllers.website_list_for_contact import get_customers_suppliers
 
 def import_tso(doc):
 
+	print("import_tso----------->", now)
+
 	
 	v_start_date = now()
 	v_error = False
