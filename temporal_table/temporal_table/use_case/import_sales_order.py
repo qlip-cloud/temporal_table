@@ -1,5 +1,6 @@
 import frappe
 from frappe import _
+import datetime
 
 from frappe.utils import now, flt
 from frappe.utils.xlsxutils import (
@@ -13,6 +14,8 @@ from erpnext.controllers.website_list_for_contact import get_customers_suppliers
 
 
 def import_tso(doc):
+
+	print("import_tso----------->", now)
 
 	
 	v_start_date = now()
@@ -89,10 +92,10 @@ def load_tmp_sales_order(doc):
 					"store": "" if row_item[indx-1] == "None" else row_item[indx-11],
 					"product": "" if row_item[indx-1] == "None" else row_item[indx-10],
 					"category": "" if row_item[indx-1] == "None" else row_item[indx-9],
-					"price": "" if row_item[indx-1] == "None" else row_item[indx-8],
-					"discount": "" if row_item[indx-1] == "None" else row_item[indx-7],
-					"currency": "" if row_item[indx-1] == "None" else row_item[indx-6],
-					"uom": "" if row_item[indx-1] == "None" else row_item[indx-5],
+					"uom": "" if row_item[indx-1] == "None" else row_item[indx-8],
+					"price": "" if row_item[indx-1] == "None" else row_item[indx-7],
+					"discount": "" if row_item[indx-1] == "None" else row_item[indx-6],
+					"currency": "" if row_item[indx-1] == "None" else row_item[indx-5],
 					"shipping_address": "" if row_item[indx-1] == "None" else row_item[indx-4],
 					"reference_1": "" if row_item[indx-1] == "None" else row_item[indx-3],
 					"reference_2": "" if row_item[indx-1] == "None" else row_item[indx-2],
@@ -116,46 +119,31 @@ def load_sales_order(doc):
 
 		raise Exception("Validation of required fields: {}".format(validation_msg))
 
-	sql_str = """
-		select company, category, reference_1, year_week
-		from tabqp_tmp_sales_orders
-		where origin_process = '{origin_process}'
-		group by  company, category, reference_1, year_week
-		order by company, category, reference_1, year_week
-	""".format(origin_process=doc.name)
+	# Se asume que es un archivo por cliente
+	# Si no hay registrado un cliente se toma el primer cliente asociado al usuario
+	# De no existir un lciente asociado al usuario lanza un error
+	item_customer = __get_item_customer(doc.name)
 
-	data = frappe.db.sql(sql_str, as_dict=1)
+	# Se agrega validación para garantizar que hay un único SO para cada cabecera
+	if is_duplicated(doc.name, item_customer):
+
+		raise Exception("Sales Order duplicated in document: {}".format(doc.name))
+
+	data = get_headers(doc.name)
 
 	for so_header in data:
 
 		delivery_date = __transform_year_week(so_header.get('year_week'))
 
-		sql_str = """
-			select company, customer, store, product, category, price, discount, currency, uom, 
-			shipping_address, reference_1, reference_2, reference_3, year_week, product_qty
-			from tabqp_tmp_sales_orders
-			where origin_process = '{origin_process}' and company = '{company}'
-			and category = '{category}' and reference_1 = '{reference_1}' and year_week = '{year_week}'
-			order by company, category, reference_1, year_week, product
-		""".format(origin_process=doc.name, company=so_header.get('company'), category=so_header.get('category'),
-			reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'))
-
-		item_data = frappe.db.sql(sql_str, as_dict=1)
+		item_data = get_details(doc.name, so_header)
 
 		order_items = []
-
-		item_customer = ""
 
 		item_currency = ""
 
 		item_shipping_address = ""
 
 		for item in item_data:
-
-			# Se asume que es un archivo por cliente
-			if not item_customer:
-
-				item_customer = __get_customer_name(item.get('customer') or "")
 
 			if not item_currency:
 
@@ -207,29 +195,62 @@ def load_sales_order(doc):
 
 			order_items.append(data_so)
 
-		obj_data = {
-			"company": so_header.get('company'),
-			"customer": item_customer,
-			"delivery_date": delivery_date,
-			"currency": item_currency,
-			"qp_year_week": so_header.get('year_week'),
-			"qp_reference1": item.get('reference_1'),
-			"qp_reference2": item.get('reference_2'),
-			"qp_reference3": item.get('reference_3'),
-			"qp_origin_process": doc.name,
-			"items": order_items,
-			"doctype": "Sales Order"
-		}
+		# Verificar si existe para actualizar en lugar de insertar
+		rec_so = search_sales_order(item_customer, so_header)
 
-		if item_shipping_address:
+		if rec_so:
+			#Update
 
-			obj_data['shipping_address_name'] = item_shipping_address
+			so_obj = frappe.get_doc('Sales Order', rec_so[0].name)
 
-		# print("obj_data--->", obj_data)
+			so_obj.items = []
 
-		sale_order = frappe.get_doc(obj_data)
+			for item_so in order_items:
+				so_obj.append("items", item_so)
 
-		sale_order.insert(ignore_permissions=True)
+			if item_shipping_address:
+
+				so_obj.shipping_address_name = item_shipping_address
+
+			# Guardar historial de cambios del proceso
+			historial_obj = prepare_process_history(so_obj.qp_origin_process)
+
+			so_obj.append('process_history', historial_obj)
+
+			so_obj.qp_origin_process = doc.name
+
+			so_obj.qp_gp_status = 'registered'
+
+			so_obj.is_updated = '1'
+
+			so_obj.save(ignore_permissions=True)
+
+		else:
+			# Insert
+
+			obj_data = {
+				"company": so_header.get('company'),
+				"customer": item_customer,
+				"delivery_date": delivery_date,
+				"currency": item_currency,
+				"qp_year_week": so_header.get('year_week'),
+				"qp_reference1": item.get('reference_1'),
+				"qp_reference2": item.get('reference_2'),
+				"qp_reference3": item.get('reference_3'),
+				"qp_category": so_header.get('category'),
+				"qp_origin_process": doc.name,
+				"is_updated": '0',
+				"items": order_items,
+				"doctype": "Sales Order"
+			}
+
+			if item_shipping_address:
+
+				obj_data['shipping_address_name'] = item_shipping_address
+
+			sale_order = frappe.get_doc(obj_data)
+
+			sale_order.insert(ignore_permissions=True)
 
 
 def validate_so2save(doc_name):
@@ -246,7 +267,108 @@ def validate_so2save(doc_name):
 
 		msg_res += _("There is different shipping address for a document or there is no shipping address\n")
 
+	# Validar year_week
+	if __get_invalid_week_number(doc_name):
+
+		msg_res += _("There is an invalid week number\n")
+
+
 	return msg_res and True or False, msg_res
+
+
+def is_duplicated(doc_name, item_customer):
+
+	sql_str = """
+		select count(name) from
+		(select company, category, reference_1, year_week
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}'
+		group by  company, category, reference_1, year_week) as temp
+		inner join `tabSales Order` as so on so.company = temp.company and so.qp_category = temp.category
+		and so.qp_reference1 = temp.reference_1 and so.qp_year_week = temp.year_week
+		Where so.customer = '{customer}'
+		group by so.company, so.customer, so.qp_category, so.qp_reference1, so.qp_year_week
+		having count(name) > 1
+	""".format(origin_process=doc_name, customer=item_customer)
+	data = frappe.db.sql(sql_str, as_dict=1)
+
+	return data and True or False
+
+
+def get_headers(doc_name):
+
+	sql_str = """
+		select company, category, reference_1, year_week
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}'
+		group by company, category, reference_1, year_week
+		order by company, category, reference_1, year_week
+	""".format(origin_process=doc_name)
+
+	data = frappe.db.sql(sql_str, as_dict=1)
+
+	return data
+
+
+def get_details(doc_name, so_header):
+
+	sql_str = """
+		select company, customer, store, product, category, uom, price, discount, currency,
+		shipping_address, reference_1, reference_2, reference_3, year_week, product_qty
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}' and company = '{company}'
+		and category = '{category}' and reference_1 = '{reference_1}' and year_week = '{year_week}'
+		order by company, category, reference_1, year_week, product
+	""".format(origin_process=doc_name, company=so_header.get('company'), category=so_header.get('category'),
+		reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'))
+
+	item_data = frappe.db.sql(sql_str, as_dict=1)
+
+	return item_data
+
+
+def search_sales_order(item_customer, so_header):
+
+	so_sql = """
+		select name
+		from `tabSales Order`
+		where company = '{company}' and customer = '{customer}'
+		and qp_category = '{category}'
+		and qp_reference1 = '{reference_1}' and qp_year_week = '{year_week}'
+	""".format(company=so_header.get('company'), customer=item_customer,
+		category=so_header.get('category'),
+		reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'))
+
+	rec_so = frappe.db.sql(so_sql, as_dict=1)
+
+	return rec_so
+
+
+def prepare_process_history(doc_process):
+
+	detail = {
+		"date": now(),
+		"origin_process": doc_process
+	}
+
+	return detail
+
+
+def __get_invalid_week_number(doc_name):
+
+	now_week_number = datetime.datetime.now().isocalendar()
+
+	week_number = "{0}-{1}".format(now_week_number[0], now_week_number[1])
+
+	# Validar que year_week estés vigentes
+	sql_str = """
+		Select year_week
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}' and year_week <= '{now_week_number}'
+	""".format(origin_process=doc_name, now_week_number=week_number)
+	res = frappe.db.sql(sql_str, as_dict=1)
+
+	return res and True or False
 
 
 def __group_by_currency(doc_name):
@@ -323,6 +445,19 @@ def __transform_year_week(year_week):
 
 	# primer lunes de la semana
 	return datetime.datetime.strptime(param_year + '-1', "%Y-W%W-%w")
+
+
+def __get_item_customer(origin_process):
+
+	sql_str = """
+		select customer
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}' and customer is not NULL
+		LIMIT 1
+	""".format(origin_process=origin_process)
+	data = frappe.db.sql(sql_str, as_dict=1)
+
+	return __get_customer_name(data and data[0].customer or "")
 
 
 def __get_customer_name(so_header_customer):

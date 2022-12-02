@@ -83,9 +83,7 @@ class qp_Advanced_Integration(Document):
 
 		elif self.import_type == "qp_tso":
 
-			frappe.enqueue(import_tso, doc=self, queue='long', is_async=True, timeout=54000)
-
-			frappe.msgprint(_('Sales order request created. Wait for the result'))
+			frappe.enqueue(import_tso, doc=self, is_async=True, timeout=54000)
 		
 		else:
 
