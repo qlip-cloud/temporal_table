@@ -219,7 +219,9 @@ def load_sales_order(doc):
 
 			so_obj.qp_origin_process = doc.name
 
-			so_obj.qp_gp_status = 'registered'
+			if so_obj.qp_gp_status == 'sent':
+
+				so_obj.qp_gp_status = 'updated'
 
 			so_obj.is_updated = '1'
 
