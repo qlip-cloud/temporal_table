@@ -452,12 +452,25 @@ def __transform_year_week(year_week):
 
 def __get_item_customer(origin_process, param_customer):
 
+	res = ""
+
 	sql_str = """
-		select customer
+		select distinct customer
 		from tabqp_tmp_sales_orders
-		where origin_process = '{origin_process}' and customer is not NULL
-		LIMIT 1
+		where origin_process = '{origin_process}'
 	""".format(origin_process=origin_process)
 	data = frappe.db.sql(sql_str, as_dict=1)
 
-	return data and data[0].customer or param_customer
+	if len(data) == 1 and data[0].customer and data[0].customer == param_customer:
+
+		res = data[0].customer
+
+	elif len(data) == 1 and not data[0].customer:
+
+		res = param_customer
+
+	else:
+
+		raise Exception("File client mismatch: {} Result: {}".format(param_customer, data))
+
+	return res

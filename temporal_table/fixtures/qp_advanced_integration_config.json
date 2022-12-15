@@ -1,5 +1,16 @@
 [
  {
+  "description": "Temporal Sales Order",
+  "docstatus": 0,
+  "doctype": "qp_Advanced_Integration_Config",
+  "integration_key": "qp_tso",
+  "modified": "2022-09-22 15:41:28.856061",
+  "name": "qp_tso",
+  "parent": null,
+  "parentfield": null,
+  "parenttype": null
+ },
+ {
   "description": "Journal Entry",
   "docstatus": 0,
   "doctype": "qp_Advanced_Integration_Config",
