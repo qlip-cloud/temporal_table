@@ -10,7 +10,8 @@
   "import_file",
   "company",
   "status",
-  "import_list"
+  "import_list",
+  "customer"
  ],
  "fields": [
   {
@@ -64,11 +65,17 @@
    "label": "Import List",
    "options": "qp_Advanced_Integration_Status",
    "read_only": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2022-10-19 17:58:01.281210",
+ "modified": "2022-12-14 19:50:43.607344",
  "modified_by": "Administrator",
  "module": "Temporal Table",
  "name": "qp_Advanced_Integration",
