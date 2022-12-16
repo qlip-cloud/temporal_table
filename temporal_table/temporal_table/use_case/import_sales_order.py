@@ -87,19 +87,19 @@ def load_tmp_sales_order(doc):
 
 				obj_data = {
 
-					"company": "" if row_item[indx-1] == "None" else row_item[indx-13],
-					"customer": "" if row_item[indx-1] == "None" else row_item[indx-12],
-					"store": "" if row_item[indx-1] == "None" else row_item[indx-11],
-					"product": "" if row_item[indx-1] == "None" else row_item[indx-10],
-					"category": "" if row_item[indx-1] == "None" else row_item[indx-9],
-					"uom": "" if row_item[indx-1] == "None" else row_item[indx-8],
-					"price": "" if row_item[indx-1] == "None" else row_item[indx-7],
-					"discount": "" if row_item[indx-1] == "None" else row_item[indx-6],
-					"currency": "" if row_item[indx-1] == "None" else row_item[indx-5],
-					"shipping_address": "" if row_item[indx-1] == "None" else row_item[indx-4],
-					"reference_1": "" if row_item[indx-1] == "None" else row_item[indx-3],
-					"reference_2": "" if row_item[indx-1] == "None" else row_item[indx-2],
-					"reference_3": "" if row_item[indx-1] == "None" else row_item[indx-1],
+					"company": doc.company if row_item[indx-13] == "None" or row_item[indx-13] == None else row_item[indx-13],
+					"customer": None if row_item[indx-12] == "None" or row_item[indx-12] == None else row_item[indx-12],
+					"store": None if row_item[indx-11] == "None" or row_item[indx-11] == None else row_item[indx-11],
+					"product": None if row_item[indx-10] == "None" or row_item[indx-10] == None else row_item[indx-10],
+					"category": None if row_item[indx-9] == "None" or row_item[indx-9] == None else row_item[indx-9],
+					"uom": None if row_item[indx-8] == "None" or row_item[indx-8] == None else row_item[indx-8],
+					"price": None if row_item[indx-7] == "None" or row_item[indx-7] == None else row_item[indx-7],
+					"discount": None if row_item[indx-6] == "None" or row_item[indx-6] == None else row_item[indx-6],
+					"currency": None if row_item[indx-5] == "None" or row_item[indx-5] == None else row_item[indx-5],
+					"shipping_address": None if row_item[indx-4] == "None" or row_item[indx-4] == None else row_item[indx-4],
+					"reference_1": None if row_item[indx-3] == "None" or row_item[indx-3] == None else row_item[indx-3],
+					"reference_2": None if row_item[indx-2] == "None" or row_item[indx-2] == None else row_item[indx-2],
+					"reference_3": None if row_item[indx-1] == "None" or row_item[indx-1] == None else row_item[indx-1],
 					"year_week": row_header[i],
 					"product_qty": row_item[i+indx],
 					"origin_process": doc.name,
@@ -122,7 +122,8 @@ def load_sales_order(doc):
 	# Se asume que es un archivo por cliente
 	# Si no hay registrado un cliente se toma el primer cliente asociado al usuario
 	# De no existir un lciente asociado al usuario lanza un error
-	item_customer = __get_item_customer(doc.name)
+	# TODO: tomarlo del advanced
+	item_customer = __get_item_customer(doc.name, doc.customer)
 
 	# Se agrega validación para garantizar que hay un único SO para cada cabecera
 	if is_duplicated(doc.name, item_customer):
@@ -449,44 +450,27 @@ def __transform_year_week(year_week):
 	return datetime.datetime.strptime(param_year + '-1', "%Y-W%W-%w")
 
 
-def __get_item_customer(origin_process):
+def __get_item_customer(origin_process, param_customer):
+
+	res = ""
 
 	sql_str = """
-		select customer
+		select distinct customer
 		from tabqp_tmp_sales_orders
-		where origin_process = '{origin_process}' and customer is not NULL
-		LIMIT 1
+		where origin_process = '{origin_process}'
 	""".format(origin_process=origin_process)
 	data = frappe.db.sql(sql_str, as_dict=1)
 
-	return __get_customer_name(data and data[0].customer or "")
+	if len(data) == 1 and data[0].customer and data[0].customer == param_customer:
 
+		res = data[0].customer
 
-def __get_customer_name(so_header_customer):
+	elif len(data) == 1 and not data[0].customer:
 
-	if so_header_customer:
-
-		item_customer = so_header_customer
+		res = param_customer
 
 	else:
 
-		customer = __get_customer()
-		item_customer = customer.name
-	
-	return item_customer
+		raise Exception("File client mismatch: {} Result: {}".format(param_customer, data))
 
-
-def __get_customer():
-
-    user = frappe.session.user
-
-    # find party for this contact
-    customers, suppliers = get_customers_suppliers('Sales Order', user)
-
-    if len(customers) < 1:
-
-        frappe.throw(_("User does not have an associated client"))
-
-    customer = frappe.get_doc('Customer', customers[0])
-
-    return customer
+	return res
