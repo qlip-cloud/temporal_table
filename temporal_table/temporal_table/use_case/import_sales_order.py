@@ -61,7 +61,7 @@ def import_tso(doc):
 
 def load_tmp_sales_order(doc):
 
-	indx = 13
+	indx = 14
 	data = []
 
 	frappe.db.sql("delete from `tabqp_tmp_sales_orders` where origin_process = '{0}'".format(doc.name))
@@ -84,13 +84,12 @@ def load_tmp_sales_order(doc):
 		for row_item in content_list:
 
 			if row_item[i+indx] and int(row_item[i+indx]) > 0:
-
+				# se salta descripción del producto (indx - 10)
 				obj_data = {
-
-					"company": doc.company if row_item[indx-13] == "None" or row_item[indx-13] == None else row_item[indx-13],
-					"customer": None if row_item[indx-12] == "None" or row_item[indx-12] == None else row_item[indx-12],
-					"store": None if row_item[indx-11] == "None" or row_item[indx-11] == None else row_item[indx-11],
-					"product": None if row_item[indx-10] == "None" or row_item[indx-10] == None else row_item[indx-10],
+					"company": doc.company if row_item[indx-14] == "None" or row_item[indx-14] == None else row_item[indx-14],
+					"customer": None if row_item[indx-13] == "None" or row_item[indx-13] == None else row_item[indx-13],
+					"store": None if row_item[indx-12] == "None" or row_item[indx-12] == None else row_item[indx-12],
+					"product": None if row_item[indx-11] == "None" or row_item[indx-11] == None else row_item[indx-11],
 					"category": None if row_item[indx-9] == "None" or row_item[indx-9] == None else row_item[indx-9],
 					"uom": None if row_item[indx-8] == "None" or row_item[indx-8] == None else row_item[indx-8],
 					"price": None if row_item[indx-7] == "None" or row_item[indx-7] == None else row_item[indx-7],
