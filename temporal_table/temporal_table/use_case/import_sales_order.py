@@ -35,7 +35,7 @@ def import_tso(doc):
 
 		v_error = True
 
-		frappe.log_error(message=frappe.get_traceback(), title="import_tso")
+		frappe.log_error(message=frappe.get_traceback(), title="import_tso:{}".format(doc.name))
 
 		pass
 
