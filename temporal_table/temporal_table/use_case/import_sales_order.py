@@ -35,7 +35,7 @@ def import_tso(doc):
 
 		v_error = True
 
-		frappe.log_error(message=frappe.get_traceback(), title="import_tso")
+		frappe.log_error(message= str(error), title="import_tso:{}".format(doc.name))
 
 		pass
 
@@ -61,7 +61,7 @@ def import_tso(doc):
 
 def load_tmp_sales_order(doc):
 
-	indx = 13
+	indx = 14
 	data = []
 
 	frappe.db.sql("delete from `tabqp_tmp_sales_orders` where origin_process = '{0}'".format(doc.name))
@@ -84,13 +84,12 @@ def load_tmp_sales_order(doc):
 		for row_item in content_list:
 
 			if row_item[i+indx] and int(row_item[i+indx]) > 0:
-
+				# se salta descripción del producto (indx - 10)
 				obj_data = {
-
-					"company": doc.company if row_item[indx-13] == "None" or row_item[indx-13] == None else row_item[indx-13],
-					"customer": None if row_item[indx-12] == "None" or row_item[indx-12] == None else row_item[indx-12],
-					"store": None if row_item[indx-11] == "None" or row_item[indx-11] == None else row_item[indx-11],
-					"product": None if row_item[indx-10] == "None" or row_item[indx-10] == None else row_item[indx-10],
+					"company": doc.company if row_item[indx-14] == "None" or row_item[indx-14] == None else row_item[indx-14],
+					"customer": None if row_item[indx-13] == "None" or row_item[indx-13] == None else row_item[indx-13],
+					"store": None if row_item[indx-12] == "None" or row_item[indx-12] == None else row_item[indx-12],
+					"product": None if row_item[indx-11] == "None" or row_item[indx-11] == None else row_item[indx-11],
 					"category": None if row_item[indx-9] == "None" or row_item[indx-9] == None else row_item[indx-9],
 					"uom": None if row_item[indx-8] == "None" or row_item[indx-8] == None else row_item[indx-8],
 					"price": None if row_item[indx-7] == "None" or row_item[indx-7] == None else row_item[indx-7],
@@ -361,13 +360,14 @@ def __get_invalid_week_number(doc_name):
 
 	now_week_number = datetime.datetime.now().isocalendar()
 
-	week_number = "{0}-{1}".format(now_week_number[0], now_week_number[1])
+	week_number = "{0}-{1}".format(now_week_number[0], str(now_week_number[1]).rjust(2, '0'))
 
 	# Validar que year_week estés vigentes
 	sql_str = """
 		Select year_week
 		from tabqp_tmp_sales_orders
-		where origin_process = '{origin_process}' and year_week <= '{now_week_number}'
+		where origin_process = '{origin_process}' 
+		and CONCAT(SUBSTRING_INDEX(year_week, '-', 1), '-', LPAD(SUBSTRING_INDEX(year_week, '-', -1), 2,'0')) <= '{now_week_number}'
 	""".format(origin_process=doc_name, now_week_number=week_number)
 	res = frappe.db.sql(sql_str, as_dict=1)
 
