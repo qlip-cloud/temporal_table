@@ -35,7 +35,7 @@ def import_tso(doc):
 
 		v_error = True
 
-		frappe.log_error(message=frappe.get_traceback(), title="import_tso:{}".format(doc.name))
+		frappe.log_error(message= str(error), title="import_tso:{}".format(doc.name))
 
 		pass
 
@@ -360,13 +360,14 @@ def __get_invalid_week_number(doc_name):
 
 	now_week_number = datetime.datetime.now().isocalendar()
 
-	week_number = "{0}-{1}".format(now_week_number[0], now_week_number[1])
+	week_number = "{0}-{1}".format(now_week_number[0], str(now_week_number[1]).rjust(2, '0'))
 
 	# Validar que year_week estés vigentes
 	sql_str = """
 		Select year_week
 		from tabqp_tmp_sales_orders
-		where origin_process = '{origin_process}' and year_week <= '{now_week_number}'
+		where origin_process = '{origin_process}' 
+		and CONCAT(SUBSTRING_INDEX(year_week, '-', 1), '-', LPAD(SUBSTRING_INDEX(year_week, '-', -1), 2,'0')) <= '{now_week_number}'
 	""".format(origin_process=doc_name, now_week_number=week_number)
 	res = frappe.db.sql(sql_str, as_dict=1)
 
