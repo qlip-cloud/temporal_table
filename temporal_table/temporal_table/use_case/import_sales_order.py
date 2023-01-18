@@ -36,6 +36,7 @@ def import_tso(doc):
 		v_error = True
 
 		frappe.log_error(message= str(error), title="import_tso:{}".format(doc.name))
+		# frappe.log_error(message=frappe.get_traceback(), title="import_tso:{}".format(doc.name))
 
 		pass
 
@@ -83,7 +84,7 @@ def load_tmp_sales_order(doc):
 	for i in range(len(row_header)):
 		for row_item in content_list:
 
-			if row_item[i+indx] and int(row_item[i+indx]) > 0:
+			if row_item[3] and row_item[i+indx] and int(row_item[i+indx]) > 0:
 				# se salta descripción del producto (indx - 10)
 				obj_data = {
 					"company": doc.company if row_item[indx-14] == "None" or row_item[indx-14] == None else row_item[indx-14],
