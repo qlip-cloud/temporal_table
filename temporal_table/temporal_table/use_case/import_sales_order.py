@@ -120,9 +120,7 @@ def load_sales_order(doc):
 		raise Exception("Validation of required fields: {}".format(validation_msg))
 
 	# Se asume que es un archivo por cliente
-	# Si no hay registrado un cliente se toma el primer cliente asociado al usuario
-	# De no existir un lciente asociado al usuario lanza un error
-	# TODO: tomarlo del advanced
+	# Si no hay registrado un cliente se toma el primer cliente seleccionado por el usuario tomado del doc advanced
 	item_customer = __get_item_customer(doc.name, doc.customer)
 
 	# Se agrega validación para garantizar que hay un único SO para cada cabecera
@@ -131,6 +129,12 @@ def load_sales_order(doc):
 		raise Exception("Sales Order duplicated in document: {}".format(doc.name))
 
 	data = get_headers(doc.name)
+
+	# Se agrega validación porque no se permite cambiar la moneda a ordenes de venta ya creadas
+	res_cur, message_cur = is_other_currency(doc.name, item_customer)
+	if res_cur:
+
+		raise Exception("Sales Order exists with other currency: {}".format(message_cur))
 
 	for so_header in data:
 
@@ -475,3 +479,26 @@ def __get_item_customer(origin_process, param_customer):
 		raise Exception("File client mismatch: {} Result: {}".format(param_customer, data))
 
 	return res
+
+
+def is_other_currency(doc_name, item_customer):
+
+	so_sql = """
+		SELECT drb_so.name FROM
+            (select company, category, reference_1, year_week, currency
+			from tabqp_tmp_sales_orders
+			where origin_process = '{origin_process}'
+			group by  company, category, reference_1, year_week, currency) as drb_temp
+		INNER JOIN
+            (select name, company, qp_category, qp_reference1, qp_year_week, currency
+			from `tabSales Order`
+			where customer = '{customer}') as drb_so
+			ON drb_temp.company = drb_so.company and drb_temp.category = drb_so.qp_category
+			and drb_temp.reference_1 = drb_so.qp_reference1
+			and drb_temp.year_week = drb_so.qp_year_week
+		WHERE drb_temp.currency != drb_so.currency
+	""".format(origin_process=doc_name, customer=item_customer)
+
+	rec_so = frappe.db.sql_list(so_sql)
+
+	return rec_so and True or False, str(rec_so)
