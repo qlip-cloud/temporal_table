@@ -134,7 +134,7 @@ def load_sales_order(doc):
 	res_cur, message_cur = is_other_currency(doc.name, item_customer)
 	if res_cur:
 
-		raise Exception("Sales Order exists with other currency: {}".format(message_cur))
+		raise Exception("Sales Order with other currency: {}".format(message_cur))
 
 	for so_header in data:
 
