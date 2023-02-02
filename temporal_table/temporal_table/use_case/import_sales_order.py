@@ -113,15 +113,15 @@ def load_tmp_sales_order(doc):
 
 def load_sales_order(doc):
 
-	validation_result, validation_msg = validate_so2save(doc.name)
+	validation_result, validation_msg = validate_so2save(doc.name, doc.company)
 
 	if validation_result:
 
 		raise Exception("Validation of required fields: {}".format(validation_msg))
 
 	# Se asume que es un archivo por cliente
-	# Si no hay registrado un cliente se toma el primer cliente seleccionado por el usuario tomado del doc advanced
-	item_customer = __get_item_customer(doc.name, doc.customer)
+	# Si no hay registrado un cliente se toma el cliente seleccionado por el usuario tomado del doc advanced
+	item_customer = __get_item_customer(doc.name, doc.customer, doc.company)
 
 	# Se agrega validación para garantizar que hay un único SO para cada cabecera
 	if is_duplicated(doc.name, item_customer):
@@ -260,25 +260,36 @@ def load_sales_order(doc):
 			sale_order.insert(ignore_permissions=True)
 
 
-def validate_so2save(doc_name):
+def validate_so2save(doc_name, doc_company):
 
 	msg_res = ""
 
 	# Validar campos
 
+	if __multiple_companies(doc_name, doc_company):
+
+		msg_res += _("There are multiple companies in the file and/or it does not correspond to the selected company<br>\n")
+
+	if __products_belong_to_company(doc_name):
+
+		msg_res += _("There are products that do not belong to the company<br>\n")
+
+	if __store_belong_to_company(doc_name, doc_company):
+
+		msg_res += _("There are stores that do not belong to the company<br>\n")
+
 	if __group_by_currency(doc_name):
 
-		msg_res += _("There is different currency for a document or there is no currency\n")
+		msg_res += _("There is different currency for a document or there is no currency<br>\n")
 
 	if __group_by_shipping_address(doc_name):
 
-		msg_res += _("There is different shipping address for a document or there is no shipping address\n")
+		msg_res += _("There is different shipping address for a document or there is no shipping address<br>\n")
 
 	# Validar year_week
 	if __get_invalid_week_number(doc_name):
 
-		msg_res += _("There is an invalid week number\n")
-
+		msg_res += _("There is an invalid week number<br>\n")
 
 	return msg_res and True or False, msg_res
 
@@ -379,6 +390,90 @@ def __get_invalid_week_number(doc_name):
 	return res and True or False
 
 
+def __multiple_companies(doc_name, doc_company):
+
+	# Debe haber una compañía en el grupo a guardar y corresponder con el del archivo
+
+	result = True
+
+	sql_str = """
+		select distinct company
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}'
+	""".format(origin_process=doc_name)
+	res = frappe.db.sql(sql_str, as_dict=1)
+
+	print("__multiple_companies res", res)
+
+	if len(res) == 1 and doc_company == res[0].company:
+
+		print("todo ok")
+
+		result = False
+
+	return result
+
+
+def __products_belong_to_company(doc_name):
+
+	# Los productos deben pertenecer a la compañía
+
+	result = True
+
+	sql_str = """
+		select count(product) as prodt_tot
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}'
+		group by product
+	""".format(origin_process=doc_name)
+	res_prod = frappe.db.sql(sql_str, as_dict=1)
+
+	print("res_prod", res_prod)
+
+	sql_str = """
+		select count(tmp_so.product) as prodt_tot
+		from tabqp_tmp_sales_orders tmp_so
+		inner join `tabItem Default` item_def
+		on tmp_so.product = item_def.parent and tmp_so.company = item_def.company
+		and item_def.parentfield = 'item_defaults'
+		and item_def.parenttype = 'Item'
+		where origin_process = '{origin_process}'
+		group by tmp_so.product
+	""".format(origin_process=doc_name)
+	res = frappe.db.sql(sql_str, as_dict=1)
+
+	print("__products_belong_to_company res", res)
+
+	if res_prod and res and res_prod[0]['prodt_tot'] == res[0]['prodt_tot']:
+
+		print("todo ok")
+
+		result = False
+
+	return result
+
+def __store_belong_to_company(doc_name, doc_company):
+
+	# Las bodegas deben pertenecer a la compañía
+
+	sql_str = """
+
+		select drb_tmp.store from
+		(select distinct store
+		from tabqp_tmp_sales_orders tmp_so
+		where origin_process = '{origin_process}') as drb_tmp
+		where drb_tmp.store not in (
+			select SUBSTRING_INDEX(name, ' - ', 1) as store
+			from `tabWarehouse`
+			where company = '{company_id}')
+	""".format(origin_process=doc_name, company_id = doc_company)
+	res = frappe.db.sql(sql_str, as_dict=1)
+
+	print("__store_belong_to_company res", res)
+
+	return res and True or False
+
+
 def __group_by_currency(doc_name):
 
 	# Validar que sea un mismo tipo de moneda por sales order a crear
@@ -455,7 +550,7 @@ def __transform_year_week(year_week):
 	return datetime.datetime.strptime(param_year + '-1', "%Y-W%W-%w")
 
 
-def __get_item_customer(origin_process, param_customer):
+def __get_item_customer(origin_process, param_customer, param_company):
 
 	res = ""
 
@@ -466,17 +561,28 @@ def __get_item_customer(origin_process, param_customer):
 	""".format(origin_process=origin_process)
 	data = frappe.db.sql(sql_str, as_dict=1)
 
-	if len(data) == 1 and data[0].customer and data[0].customer == param_customer:
-
-		res = data[0].customer
-
-	elif len(data) == 1 and not data[0].customer:
+	if (len(data) == 1 and data[0].customer and data[0].customer == param_customer) or (len(data) == 1 and not data[0].customer):
 
 		res = param_customer
 
 	else:
 
 		raise Exception("File client mismatch: {} Result: {}".format(param_customer, data))
+
+	# Validar que el cliente a registrar pertenece a la compañía
+
+	sql_str = """
+		select parent as customer_id
+		from `tabParty Account`
+		where parent = '{customer_id}' and company = '{company_id}' and parentfield = 'accounts' and parenttype = 'Customer'
+	""".format(customer_id=res, company_id=param_company)
+	res_customer = frappe.db.sql(sql_str, as_dict=1)
+
+	print("res_customer", res_customer)
+
+	if not res_customer:
+
+		raise Exception("The client does not belong to the company")
 
 	return res
 
@@ -485,12 +591,12 @@ def is_other_currency(doc_name, item_customer):
 
 	so_sql = """
 		SELECT drb_so.name FROM
-            (select company, category, reference_1, year_week, currency
+			(select company, category, reference_1, year_week, currency
 			from tabqp_tmp_sales_orders
 			where origin_process = '{origin_process}'
 			group by  company, category, reference_1, year_week, currency) as drb_temp
 		INNER JOIN
-            (select name, company, qp_category, qp_reference1, qp_year_week, currency
+			(select name, company, qp_category, qp_reference1, qp_year_week, currency
 			from `tabSales Order`
 			where customer = '{customer}') as drb_so
 			ON drb_temp.company = drb_so.company and drb_temp.category = drb_so.qp_category
