@@ -239,7 +239,6 @@ def load_sales_order(doc):
 				"company": so_header.get('company'),
 				"customer": item_customer,
 				"delivery_date": delivery_date,
-				"currency": item_currency,
 				"qp_year_week": so_header.get('year_week'),
 				"qp_reference1": item.get('reference_1'),
 				"qp_reference2": item.get('reference_2'),
@@ -250,6 +249,10 @@ def load_sales_order(doc):
 				"items": order_items,
 				"doctype": "Sales Order"
 			}
+
+			if item_currency:
+
+				obj_data['currency'] = item_currency
 
 			if item_shipping_address:
 
@@ -290,6 +293,11 @@ def validate_so2save(doc_name, doc_company):
 	if __get_invalid_week_number(doc_name):
 
 		msg_res += _("There is an invalid week number<br>\n")
+
+	# Validar productos duplicados
+	if __duplicate_products(doc_name):
+
+		msg_res += _("There is duplicate products<br>\n")
 
 	return msg_res and True or False, msg_res
 
@@ -390,6 +398,21 @@ def __get_invalid_week_number(doc_name):
 	return res and True or False
 
 
+def __duplicate_products(doc_name):
+
+	sql_str = """
+		select company, category, reference_1, year_week, product, count(product) as count_prod
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}'
+		group by company, category, reference_1, year_week, product
+		having count_prod > 1
+	""".format(origin_process=doc_name)
+
+	data = frappe.db.sql(sql_str, as_dict=1)
+
+	return data and True or False
+
+
 def __multiple_companies(doc_name, doc_company):
 
 	# Debe haber una compañía en el grupo a guardar y corresponder con el del archivo
@@ -403,11 +426,7 @@ def __multiple_companies(doc_name, doc_company):
 	""".format(origin_process=doc_name)
 	res = frappe.db.sql(sql_str, as_dict=1)
 
-	print("__multiple_companies res", res)
-
 	if len(res) == 1 and doc_company == res[0].company:
-
-		print("todo ok")
 
 		result = False
 
@@ -428,8 +447,6 @@ def __products_belong_to_company(doc_name):
 	""".format(origin_process=doc_name)
 	res_prod = frappe.db.sql(sql_str, as_dict=1)
 
-	print("res_prod", res_prod)
-
 	sql_str = """
 		select count(tmp_so.product) as prodt_tot
 		from tabqp_tmp_sales_orders tmp_so
@@ -442,11 +459,7 @@ def __products_belong_to_company(doc_name):
 	""".format(origin_process=doc_name)
 	res = frappe.db.sql(sql_str, as_dict=1)
 
-	print("__products_belong_to_company res", res)
-
 	if res_prod and res and res_prod[0]['prodt_tot'] == res[0]['prodt_tot']:
-
-		print("todo ok")
 
 		result = False
 
@@ -468,8 +481,6 @@ def __store_belong_to_company(doc_name, doc_company):
 			where company = '{company_id}')
 	""".format(origin_process=doc_name, company_id = doc_company)
 	res = frappe.db.sql(sql_str, as_dict=1)
-
-	print("__store_belong_to_company res", res)
 
 	return res and True or False
 
@@ -577,8 +588,6 @@ def __get_item_customer(origin_process, param_customer, param_company):
 		where parent = '{customer_id}' and company = '{company_id}' and parentfield = 'accounts' and parenttype = 'Customer'
 	""".format(customer_id=res, company_id=param_company)
 	res_customer = frappe.db.sql(sql_str, as_dict=1)
-
-	print("res_customer", res_customer)
 
 	if not res_customer:
 
