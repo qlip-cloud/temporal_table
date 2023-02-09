@@ -148,6 +148,8 @@ def load_sales_order(doc):
 
 		item_shipping_address = ""
 
+		list_price_header = ""
+
 		for item in item_data:
 
 			if not item_currency:
@@ -157,6 +159,10 @@ def load_sales_order(doc):
 			if not item_shipping_address:
 
 				item_shipping_address = item.get("shipping_address") or ""
+
+			if not list_price_header:
+
+				list_price_header = get_list_price(so_header.get('company'), item.get('product'))
 
 			prod_id = item.get('product')
 
@@ -172,12 +178,17 @@ def load_sales_order(doc):
 
 			item_disc = item.get('discount') or 0
 
-			# TODO: Definir de donde tomar el precio en caso de no existir en el archivo
-			# La solución aplicada asume que se antiene el proceso de actualización de precios de VF
-			price_list = frappe.db.get_single_value("Selling Settings", "selling_price_list")
-			price_default = frappe.get_list('Item Price', filters={'item_code': prod_id, 'price_list': price_list}, fields=['price_list_rate'])
-			price_default = price_default and price_default[0]['price_list_rate'] or 0
-			item_amount = item.get('price') or price_default
+			# Tomar el precio de la lista de precio por defecto del producto en caso de no existir en el archivo
+			if item.get('price'):
+				item_amount = item.get('price')
+			else:
+				price_list = get_list_price(so_header.get('company'), item.get('product'))
+				price_list = price_list or list_price_header
+				price_list = price_list or frappe.db.get_single_value("Selling Settings", "selling_price_list")
+
+				price_default = frappe.get_list('Item Price', filters={'item_code': prod_id, 'price_list': price_list}, fields=['price_list_rate'])
+				price_default = price_default and price_default[0]['price_list_rate'] or 0
+				item_amount = price_default
 
 			data_so = {
 				"item_code": prod_id,
@@ -257,6 +268,10 @@ def load_sales_order(doc):
 			if item_shipping_address:
 
 				obj_data['shipping_address_name'] = item_shipping_address
+
+			if list_price_header:
+
+				obj_data['selling_list_price'] = list_price_header
 
 			sale_order = frappe.get_doc(obj_data)
 
@@ -617,3 +632,20 @@ def is_other_currency(doc_name, item_customer):
 	rec_so = frappe.db.sql_list(so_sql)
 
 	return rec_so and True or False, str(rec_so)
+
+
+def get_list_price(company, product_id):
+
+	so_sql = """
+		SELECT drb_def.default_price_list FROM `tabItem Default` as drb_def
+		INNER JOIN tabItem as drb_item on drb_def.parent =  drb_item.name
+		WHERE drb_def.parentfield = 'item_defaults' AND drb_def.parenttype = 'Item'
+		AND drb_def.company = '{company_name}' AND drb_def.parent = '{product}'
+		LIMIT 1;
+	""".format(company_name=company, product=product_id)
+
+	rec_price_list = frappe.db.sql_list(so_sql)
+
+	print("rec_price_list", rec_price_list)
+
+	return rec_price_list and rec_price_list[0] or ''
