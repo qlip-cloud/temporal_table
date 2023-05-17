@@ -6,6 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "id",
+  "finance_book",
   "entry_type",
   "series",
   "company",
@@ -93,11 +94,16 @@
    "fieldname": "total_credit",
    "fieldtype": "Currency",
    "label": "total_credit"
+  },
+  {
+   "fieldname": "finance_book",
+   "fieldtype": "Data",
+   "label": "finance_book"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2022-09-02 14:50:06.617149",
+ "modified": "2023-05-17 09:01:04.618467",
  "modified_by": "Administrator",
  "module": "Temporal Table",
  "name": "Journal_Entry_Temporal",
