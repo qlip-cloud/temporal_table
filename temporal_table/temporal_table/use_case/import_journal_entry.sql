@@ -294,18 +294,30 @@ BEGIN
 
         if canti1 <> 0 then
             SELECT CONCAT(CAST(canti1 AS CHAR), " party type(s) no match. Is case sensitive.") as Party;
+            select distinct party_type
+                from `tabJournal_Entry_Temporal`
+            where BINARY party_type not in (select name from `tabParty Type`);
         end if;
 
         if canti2 <> 0 then
             SELECT CONCAT(CAST(canti2 AS CHAR), " customer(s) no match. Check if the file is in UTF-8 format. Is case sensitive too.") as Customer;
+            select distinct party
+                from `tabJournal_Entry_Temporal`
+            where party_type = 'Customer' and BINARY party not in (select name from tabCustomer);
         end if;
 
         if canti3 <> 0 then
             SELECT CONCAT(CAST(canti3 AS CHAR), " supplier(s) no match. Check if the file is in UTF-8 format. Is case sensitive too.") as Supplier;
+            select distinct party
+                from `tabJournal_Entry_Temporal`
+            where party_type = 'Supplier' and BINARY party not in (select name from tabSupplier);
         end if;
 
         if canti4 <> 0 then
             SELECT CONCAT(CAST(canti4 AS CHAR), " account(s) no match. Check if the file is in UTF-8 format. Is case sensitive too.") as Account;
+            select distinct account
+                from `tabJournal_Entry_Temporal`
+            where BINARY account not in (select name from tabAccount);
         end if;
 
         if canti5 <> 0 then
