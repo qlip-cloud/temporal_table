@@ -6,6 +6,9 @@ BEGIN
     DECLARE je_usr varchar(140) DEFAULT 'Administrator';
     DECLARE je_currency varchar(140) DEFAULT 'COP';
 
+    DECLARE je_finance_book varchar(140);
+    DECLARE tmp_finance_book varchar(140);
+    DECLARE fb_valid int;
     
     DECLARE je_entry_type varchar(140);
     DECLARE je_is_opening varchar(140);
@@ -65,8 +68,8 @@ BEGIN
 
     -- Se asume que el archivo contiene lo que se va a cargar en un asiento
     -- SELECT '** Obtener datos de cabecera' AS '** DEBUG:';
-    select jet.entry_type, jet.series, jet.company, jet.posting_date, jet.title, jet.total_debit, jet.total_credit
-        into je_entry_type, je_series, je_company, je_posting_date, je_title, je_total_debit, je_total_credit
+    select jet.finance_book, jet.entry_type, jet.series, jet.company, jet.posting_date, jet.title, jet.total_debit, jet.total_credit
+        into je_finance_book, je_entry_type, je_series, je_company, je_posting_date, je_title, je_total_debit, je_total_credit
         from `tabJournal_Entry_Temporal` jet
 	    inner join `tabCompany` comp on  jet.company = comp.name;
     
@@ -83,6 +86,34 @@ BEGIN
     Select CONCAT('ACC-JV-',YEAR(now()),'-')
         into je_series_name;
 
+
+    -- SELECT '** Obtener finance book' AS '** DEBUG:';
+
+    -- Se busca el libro de finanzas por defecto en caso de venir vacío en el archivo
+    if je_finance_book is null or je_finance_book = '' then
+        select comp.default_finance_book
+            into tmp_finance_book
+            from tabCompany as comp
+        where comp.name = je_company;
+        SET fb_valid = 1;
+
+    else
+        select fb.name
+            into tmp_finance_book
+            from `tabFinance Book` as fb
+        where fb.name = je_finance_book;
+
+        if tmp_finance_book is null or tmp_finance_book = '' then
+            SET fb_valid = 0;
+        else
+            SET fb_valid = 1;
+        end if;
+
+    end if;
+
+    -- SELECT tmp_finance_book AS '** DEBUG:-------';
+
+
     -- SELECT '** Validar datos' AS '** DEBUG:';
 
     select fy.name
@@ -93,7 +124,7 @@ BEGIN
     LIMIT 1;
 
     -- TODO: Incorporar validaciones cuando se genere la serie
-    if je_company_entry_type = 1 and gle_fiscal_year != '' and je_total_debit = je_total_credit and je_series_default = je_series then
+    if fb_valid = 1 and je_company_entry_type = 1 and gle_fiscal_year != '' and je_total_debit = je_total_credit and je_series_default = je_series then
         SET je_valid = 1;
     else
         SET je_valid = 0;
@@ -167,11 +198,12 @@ BEGIN
         select cast(NOW() as datetime(6)) into je_date;
 
         INSERT INTO `tabJournal Entry` (
-            `name`,`company`,`posting_date`,`title`,`total_debit`,`total_credit`,
+            `name`,`finance_book`,`company`,`posting_date`,`title`,`total_debit`,`total_credit`,
             `creation`,`modified`,`modified_by`,`owner`,`naming_series`,
             `total_amount_currency`,`docstatus`,`total_amount`, `voucher_type`, `is_opening`)
             select 
             je_name as `name`,
+            tmp_finance_book as `finance_book`,
             je_company as `company`,
             je_posting_date as `posting_date`,
             je_title `title`,
@@ -230,12 +262,14 @@ BEGIN
 
         INSERT INTO `tabGL Entry` (
             `name`, `owner`, `creation`, `modified`, `modified_by`, `idx`, `docstatus`,
+            `finance_book`,
             `posting_date`, `account`, `party_type`, `party`,
             `debit`, `credit`, `account_currency`, `debit_in_account_currency`, `credit_in_account_currency`,
             `voucher_type`, `voucher_no`, `is_opening`, `is_advance`,
             `fiscal_year`, `company`, `to_rename`, `is_cancelled`)
             select
             `name`, `owner`, `creation`, `modified`, `modified_by`, `idx`, `docstatus`,
+            `finance_book`,
             `posting_date`, `account`, `party_type`, `party`,
             `debit`, `credit`, `account_currency`, `debit_in_account_currency`, `credit_in_account_currency`,
             `voucher_type`, `voucher_no`, `is_opening`, `is_advance`,
@@ -243,6 +277,7 @@ BEGIN
             from (
                 SELECT
                 jea.name, jea.owner, jea.creation, jea.modified, jea.modified_by, 0 as idx, 1 as docstatus,
+                je.finance_book,
                 je.posting_date, jea.account, jea.party_type, jea.party,
                 jea.debit, jea.credit, jea.account_currency, jea.debit_in_account_currency, jea.credit_in_account_currency,
                 je.voucher_type, je.name as voucher_no,  je.is_opening, jea.is_advance,
@@ -259,18 +294,30 @@ BEGIN
 
         if canti1 <> 0 then
             SELECT CONCAT(CAST(canti1 AS CHAR), " party type(s) no match. Is case sensitive.") as Party;
+            select distinct party_type
+                from `tabJournal_Entry_Temporal`
+            where BINARY party_type not in (select name from `tabParty Type`);
         end if;
 
         if canti2 <> 0 then
             SELECT CONCAT(CAST(canti2 AS CHAR), " customer(s) no match. Check if the file is in UTF-8 format. Is case sensitive too.") as Customer;
+            select distinct party
+                from `tabJournal_Entry_Temporal`
+            where party_type = 'Customer' and BINARY party not in (select name from tabCustomer);
         end if;
 
         if canti3 <> 0 then
             SELECT CONCAT(CAST(canti3 AS CHAR), " supplier(s) no match. Check if the file is in UTF-8 format. Is case sensitive too.") as Supplier;
+            select distinct party
+                from `tabJournal_Entry_Temporal`
+            where party_type = 'Supplier' and BINARY party not in (select name from tabSupplier);
         end if;
 
         if canti4 <> 0 then
             SELECT CONCAT(CAST(canti4 AS CHAR), " account(s) no match. Check if the file is in UTF-8 format. Is case sensitive too.") as Account;
+            select distinct account
+                from `tabJournal_Entry_Temporal`
+            where BINARY account not in (select name from tabAccount);
         end if;
 
         if canti5 <> 0 then
@@ -292,6 +339,10 @@ BEGIN
         end if;
 
         if je_valid = 0 then
+
+            if fb_valid = 0 then
+                Select "Finance book does not exist." as `Finance Book Result`;
+            end if;
 
             if je_company_entry_type != 1 then
                 Select "There is no correspondence between company/type of journal with the document that initiates the process." as `Difference with company or entry_type`;

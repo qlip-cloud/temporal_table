@@ -139,7 +139,7 @@ INTO TABLE tabJournal_Entry_Temporal
 FIELDS TERMINATED BY ';'
 OPTIONALLY ENCLOSED BY '"'
 IGNORE 1 LINES
-(id,entry_type,series,company,posting_date,title,total_debit,total_credit,name,party_type,party,account,debit_in_account_currency,credit_in_account_currency);
+(id,finance_book,entry_type,series,company,posting_date,title,total_debit,total_credit,name,party_type,party,account,debit_in_account_currency,credit_in_account_currency);
 EOF""".format(je_file_path)
 
 	return qry_load_journal_entry_temporal
