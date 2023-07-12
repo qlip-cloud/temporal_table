@@ -9,6 +9,7 @@
   "customer",
   "store",
   "product",
+  "item_type",
   "category",
   "uom",
   "price",
@@ -121,11 +122,16 @@
    "fieldtype": "Link",
    "label": "origin_process",
    "options": "qp_Advanced_Integration"
+  },
+  {
+   "fieldname": "item_type",
+   "fieldtype": "Data",
+   "label": "item_type"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2023-03-30 08:52:49.811462",
+ "modified": "2023-07-12 16:24:45.014034",
  "modified_by": "Administrator",
  "module": "Temporal Table",
  "name": "qp_tmp_sales_orders",
