@@ -9,6 +9,7 @@
   "customer",
   "store",
   "product",
+  "item_type",
   "category",
   "uom",
   "price",
@@ -20,7 +21,8 @@
   "reference_3",
   "year_week",
   "product_qty",
-  "origin_process"
+  "origin_process",
+  "line_id"
  ],
  "fields": [
   {
@@ -121,11 +123,21 @@
    "fieldtype": "Link",
    "label": "origin_process",
    "options": "qp_Advanced_Integration"
+  },
+  {
+   "fieldname": "item_type",
+   "fieldtype": "Data",
+   "label": "item_type"
+  },
+  {
+   "fieldname": "line_id",
+   "fieldtype": "Data",
+   "label": "line_id"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2023-03-30 08:52:49.811462",
+ "modified": "2023-07-12 09:17:03.362832",
  "modified_by": "Administrator",
  "module": "Temporal Table",
  "name": "qp_tmp_sales_orders",
