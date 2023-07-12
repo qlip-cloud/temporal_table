@@ -21,8 +21,7 @@
   "reference_3",
   "year_week",
   "product_qty",
-  "origin_process",
-  "line_id"
+  "origin_process"
  ],
  "fields": [
   {
@@ -128,16 +127,11 @@
    "fieldname": "item_type",
    "fieldtype": "Data",
    "label": "item_type"
-  },
-  {
-   "fieldname": "line_id",
-   "fieldtype": "Data",
-   "label": "line_id"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2023-07-12 09:17:03.362832",
+ "modified": "2023-07-12 16:24:45.014034",
  "modified_by": "Administrator",
  "module": "Temporal Table",
  "name": "qp_tmp_sales_orders",
