@@ -95,6 +95,7 @@ def load_tmp_sales_order(doc):
 					"category": None if row_item[indx-9] == "None" or row_item[indx-9] == None else row_item[indx-9],
 					"uom": None if row_item[indx-8] == "None" or row_item[indx-8] == None else row_item[indx-8],
 					"price": None if row_item[indx-7] == "None" or row_item[indx-7] == None else row_item[indx-7],
+					"empty_price": 1 if row_item[indx-7] == "None" or row_item[indx-7] == None else 0,
 					"discount": None if row_item[indx-6] == "None" or row_item[indx-6] == None else row_item[indx-6],
 					"currency": None if row_item[indx-5] == "None" or row_item[indx-5] == None else row_item[indx-5],
 					"shipping_address": None if row_item[indx-4] == "None" or row_item[indx-4] == None else row_item[indx-4],
@@ -184,7 +185,8 @@ def load_sales_order(doc):
 			item_disc = item.get('discount') or 0
 
 			# Tomar el precio de la lista de precio por defecto del producto en caso de no existir en el archivo
-			if item.get('price'):
+			# Detectar cuando está en blanco y cuando el precio es cero
+			if str(item.get('empty_price')) == "0":
 				item_amount = item.get('price')
 			else:
 				price_list = get_list_price(so_header.get('company'), item.get('product'))
@@ -362,7 +364,7 @@ def get_headers(doc_name):
 def get_details(doc_name, so_header):
 
 	sql_str = """
-		select company, customer, store, product, item_type, category, uom, price, discount, currency,
+		select company, customer, store, product, item_type, category, uom, price, empty_price, discount, currency,
 		shipping_address, reference_1, reference_2, reference_3, year_week, product_qty
 		from tabqp_tmp_sales_orders
 		where origin_process = '{origin_process}' and company = '{company}'

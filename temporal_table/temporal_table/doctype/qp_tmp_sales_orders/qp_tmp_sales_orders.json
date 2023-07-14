@@ -13,6 +13,7 @@
   "category",
   "uom",
   "price",
+  "empty_price",
   "discount",
   "currency",
   "shipping_address",
@@ -127,11 +128,16 @@
    "fieldname": "item_type",
    "fieldtype": "Data",
    "label": "item_type"
+  },
+  {
+   "fieldname": "empty_price",
+   "fieldtype": "Select",
+   "label": "empty_price"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2023-07-12 16:24:45.014034",
+ "modified": "2023-07-14 11:11:18.741460",
  "modified_by": "Administrator",
  "module": "Temporal Table",
  "name": "qp_tmp_sales_orders",
