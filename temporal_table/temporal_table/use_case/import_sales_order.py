@@ -62,7 +62,7 @@ def import_tso(doc):
 
 def load_tmp_sales_order(doc):
 
-	indx = 14
+	indx = 15
 	data = []
 
 	frappe.db.sql("delete from `tabqp_tmp_sales_orders` where origin_process = '{0}'".format(doc.name))
@@ -87,13 +87,15 @@ def load_tmp_sales_order(doc):
 			if row_item[3] and row_item[i+indx] and int(row_item[i+indx]) > 0:
 				# se salta descripción del producto (indx - 10)
 				obj_data = {
-					"company": doc.company if row_item[indx-14] == "None" or row_item[indx-14] == None else row_item[indx-14],
-					"customer": None if row_item[indx-13] == "None" or row_item[indx-13] == None else row_item[indx-13],
-					"store": None if row_item[indx-12] == "None" or row_item[indx-12] == None else row_item[indx-12],
-					"product": None if row_item[indx-11] == "None" or row_item[indx-11] == None else row_item[indx-11],
+					"company": doc.company if row_item[indx-15] == "None" or row_item[indx-15] == None else row_item[indx-15],
+					"customer": None if row_item[indx-14] == "None" or row_item[indx-14] == None else row_item[indx-14],
+					"store": None if row_item[indx-13] == "None" or row_item[indx-13] == None else row_item[indx-13],
+					"product": None if row_item[indx-12] == "None" or row_item[indx-12] == None else row_item[indx-12],
+					"item_type": None if row_item[indx-11] == "None" or row_item[indx-11] == None else row_item[indx-11],
 					"category": None if row_item[indx-9] == "None" or row_item[indx-9] == None else row_item[indx-9],
 					"uom": None if row_item[indx-8] == "None" or row_item[indx-8] == None else row_item[indx-8],
 					"price": None if row_item[indx-7] == "None" or row_item[indx-7] == None else row_item[indx-7],
+					"empty_price": 1 if row_item[indx-7] == "None" or row_item[indx-7] == None else 0,
 					"discount": None if row_item[indx-6] == "None" or row_item[indx-6] == None else row_item[indx-6],
 					"currency": None if row_item[indx-5] == "None" or row_item[indx-5] == None else row_item[indx-5],
 					"shipping_address": None if row_item[indx-4] == "None" or row_item[indx-4] == None else row_item[indx-4],
@@ -144,6 +146,8 @@ def load_sales_order(doc):
 
 		order_items = []
 
+		prod_type = ""
+
 		item_currency = ""
 
 		item_shipping_address = ""
@@ -166,6 +170,8 @@ def load_sales_order(doc):
 
 			prod_id = item.get('product')
 
+			prod_type = item.get('item_type') or ""
+
 			prod_name = frappe.db.get_value("Item", prod_id, "item_name")
 
 			prod_uom = frappe.db.get_value("Item", prod_id, "stock_uom")
@@ -179,7 +185,8 @@ def load_sales_order(doc):
 			item_disc = item.get('discount') or 0
 
 			# Tomar el precio de la lista de precio por defecto del producto en caso de no existir en el archivo
-			if item.get('price'):
+			# Detectar cuando está en blanco y cuando el precio es cero
+			if str(item.get('empty_price')) == "0":
 				item_amount = item.get('price')
 			else:
 				price_list = get_list_price(so_header.get('company'), item.get('product'))
@@ -203,6 +210,7 @@ def load_sales_order(doc):
 				"discount_amount": flt(item_amount) * flt(item_disc)/100,
 				"conversion_factor": item_uom_conv,
 				"delivery_date": delivery_date,
+				"qp_item_type": prod_type
 			}
 
 			if item.get('store'):
@@ -309,10 +317,12 @@ def validate_so2save(doc_name, doc_company):
 
 		msg_res += _("There is an invalid week number<br>\n")
 
-	# Validar productos duplicados
-	if __duplicate_products(doc_name):
 
-		msg_res += _("There is duplicate products<br>\n")
+	# Validar productos duplicados (distinguiendo por item_type)
+	res, prod_list = __duplicate_products(doc_name)
+	if res:
+
+		msg_res += _("There is duplicate products: {} <br>\n".format(str(prod_list)))
 
 	return msg_res and True or False, msg_res
 
@@ -354,12 +364,12 @@ def get_headers(doc_name):
 def get_details(doc_name, so_header):
 
 	sql_str = """
-		select company, customer, store, product, category, uom, price, discount, currency,
+		select company, customer, store, product, item_type, category, uom, price, empty_price, discount, currency,
 		shipping_address, reference_1, reference_2, reference_3, year_week, product_qty
 		from tabqp_tmp_sales_orders
 		where origin_process = '{origin_process}' and company = '{company}'
 		and category = '{category}' and reference_1 = '{reference_1}' and year_week = '{year_week}'
-		order by company, category, reference_1, year_week, product
+		order by company, category, reference_1, year_week, product, item_type
 	""".format(origin_process=doc_name, company=so_header.get('company'), category=so_header.get('category'),
 		reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'))
 
@@ -416,16 +426,16 @@ def __get_invalid_week_number(doc_name):
 def __duplicate_products(doc_name):
 
 	sql_str = """
-		select company, category, reference_1, year_week, product, count(product) as count_prod
+		select company, category, reference_1, year_week, product, item_type, count(product) as count_prod
 		from tabqp_tmp_sales_orders
 		where origin_process = '{origin_process}'
-		group by company, category, reference_1, year_week, product
+		group by company, category, reference_1, year_week, product, item_type
 		having count_prod > 1
 	""".format(origin_process=doc_name)
 
 	data = frappe.db.sql(sql_str, as_dict=1)
 
-	return data and True or False
+	return data and True or False, [x.product for x in data]
 
 
 def __multiple_companies(doc_name, doc_company):
@@ -645,7 +655,5 @@ def get_list_price(company, product_id):
 	""".format(company_name=company, product=product_id)
 
 	rec_price_list = frappe.db.sql_list(so_sql)
-
-	print("rec_price_list", rec_price_list)
 
 	return rec_price_list and rec_price_list[0] or ''
