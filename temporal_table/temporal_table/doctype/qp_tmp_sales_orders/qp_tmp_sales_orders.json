@@ -9,9 +9,11 @@
   "customer",
   "store",
   "product",
+  "item_type",
   "category",
   "uom",
   "price",
+  "empty_price",
   "discount",
   "currency",
   "shipping_address",
@@ -121,11 +123,21 @@
    "fieldtype": "Link",
    "label": "origin_process",
    "options": "qp_Advanced_Integration"
+  },
+  {
+   "fieldname": "item_type",
+   "fieldtype": "Data",
+   "label": "item_type"
+  },
+  {
+   "fieldname": "empty_price",
+   "fieldtype": "Select",
+   "label": "empty_price"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2023-03-30 08:52:49.811462",
+ "modified": "2023-07-14 11:11:18.741460",
  "modified_by": "Administrator",
  "module": "Temporal Table",
  "name": "qp_tmp_sales_orders",
