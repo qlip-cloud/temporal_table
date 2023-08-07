@@ -296,9 +296,9 @@ def validate_so2save(doc_name, doc_company):
 
 		msg_res += _("There are stores that do not belong to the company<br>\n")
 
-	if __group_by_currency(doc_name):
+	#if __group_by_currency(doc_name):
 
-		msg_res += _("There is different currency for a document or there is no currency<br>\n")
+		#msg_res += _("There is different currency for a document or there is no currency<br>\n")
 
 	if __group_by_shipping_address(doc_name):
 
@@ -339,11 +339,11 @@ def is_duplicated(doc_name, item_customer):
 def get_headers(doc_name):
 
 	sql_str = """
-		select company, category, reference_1, year_week
+		select company, category, reference_1, year_week, currency
 		from tabqp_tmp_sales_orders
 		where origin_process = '{origin_process}'
-		group by company, category, reference_1, year_week
-		order by company, category, reference_1, year_week
+		group by company, category, reference_1, year_week, currency
+		order by company, category, reference_1, year_week, currency
 	""".format(origin_process=doc_name)
 
 	data = frappe.db.sql(sql_str, as_dict=1)
@@ -359,7 +359,7 @@ def get_details(doc_name, so_header):
 		from tabqp_tmp_sales_orders
 		where origin_process = '{origin_process}' and company = '{company}'
 		and category = '{category}' and reference_1 = '{reference_1}' and year_week = '{year_week}'
-		order by company, category, reference_1, year_week, product
+		order by company, category, reference_1, year_week, product, currency
 	""".format(origin_process=doc_name, company=so_header.get('company'), category=so_header.get('category'),
 		reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'))
 
