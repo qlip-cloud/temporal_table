@@ -384,8 +384,8 @@ def search_sales_order(item_customer, so_header):
 		select name
 		from `tabSales Order`
 		where company = '{company}' and customer = '{customer}'
-		and qp_category = '{category}',
-		and currency = '{currency}',
+		and qp_category = '{category}'
+		and currency = '{currency}'
 		and qp_reference1 = '{reference_1}' and qp_year_week = '{year_week}'
 	""".format(company=so_header.get('company'), customer=item_customer,
 		category=so_header.get('category'),
