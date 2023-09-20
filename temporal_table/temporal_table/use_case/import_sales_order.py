@@ -100,8 +100,8 @@ def load_tmp_sales_order(doc):
 					"currency": None if row_item[indx-5] == "None" or row_item[indx-5] == None else row_item[indx-5],
 					"shipping_address": None if row_item[indx-4] == "None" or row_item[indx-4] == None else row_item[indx-4],
 					"reference_1": None if row_item[indx-3] == "None" or row_item[indx-3] == None else row_item[indx-3],
-					"reference_2": None if row_item[indx-2] == "None" or row_item[indx-2] == None else row_item[indx-2],
-					"reference_3": None if row_item[indx-1] == "None" or row_item[indx-1] == None else row_item[indx-1],
+					"reference_2": "" if row_item[indx-2] == "None" or row_item[indx-2] == None else row_item[indx-2],
+					"reference_3": "" if row_item[indx-1] == "None" or row_item[indx-1] == None else row_item[indx-1],
 					"year_week": row_header[i],
 					"product_qty": row_item[i+indx],
 					"origin_process": doc.name,
@@ -133,10 +133,11 @@ def load_sales_order(doc):
 	data = get_headers(doc.name)
 
 	# Se agrega validación porque no se permite cambiar la moneda a ordenes de venta ya creadas
-	res_cur, message_cur = is_other_currency(doc.name, item_customer)
-	if res_cur:
+	# NOTA: Al permitir para la misma semana diferentes monedas, no hay manera de detectar cual es la orden a comparar
+	# res_cur, message_cur = is_other_currency(doc.name, item_customer)
+	# if res_cur:
 
-		raise Exception("Sales Order with other currency: {}".format(message_cur))
+	# 	raise Exception("Sales Order with other currency: {}".format(message_cur))
 
 	for so_header in data:
 
@@ -259,9 +260,9 @@ def load_sales_order(doc):
 				"customer": item_customer,
 				"delivery_date": delivery_date,
 				"qp_year_week": so_header.get('year_week'),
-				"qp_reference1": item.get('reference_1'),
-				"qp_reference2": item.get('reference_2'),
-				"qp_reference3": item.get('reference_3'),
+				"qp_reference1": so_header.get('reference_1'),
+				"qp_reference2": so_header.get('reference_2'),
+				"qp_reference3": "", # TODO: item.get('reference_3'),
 				"qp_category": so_header.get('category'),
 				"qp_origin_process": doc.name,
 				"is_updated": '0',
@@ -331,14 +332,15 @@ def is_duplicated(doc_name, item_customer):
 
 	sql_str = """
 		select count(name) from
-		(select company, category, reference_1, year_week, currency
+		(select company, category, reference_1, year_week, currency, reference_2
 		from tabqp_tmp_sales_orders
 		where origin_process = '{origin_process}'
-		group by  company, category, reference_1, year_week, currency) as temp
+		group by  company, category, reference_1, year_week, currency, reference_2) as temp
 		inner join `tabSales Order` as so on so.company = temp.company and so.qp_category = temp.category
 		and so.qp_reference1 = temp.reference_1 and so.qp_year_week = temp.year_week  and so.currency = temp.currency
+		and so.qp_reference2 = temp.reference_2
 		Where so.customer = '{customer}'
-		group by so.company, so.customer, so.qp_category, so.qp_reference1, so.qp_year_week, so.currency
+		group by so.company, so.customer, so.qp_category, so.qp_reference1, so.qp_year_week, so.currency, so.qp_reference2
 		having count(name) > 1
 	""".format(origin_process=doc_name, customer=item_customer)
 	data = frappe.db.sql(sql_str, as_dict=1)
@@ -349,11 +351,11 @@ def is_duplicated(doc_name, item_customer):
 def get_headers(doc_name):
 
 	sql_str = """
-		select company, category, reference_1, year_week, currency
+		select company, category, reference_1, year_week, currency, reference_2
 		from tabqp_tmp_sales_orders
 		where origin_process = '{origin_process}'
-		group by company, category, reference_1, year_week, currency
-		order by company, category, reference_1, year_week, currency
+		group by company, category, reference_1, year_week, currency, reference_2
+		order by company, category, reference_1, year_week, currency, reference_2
 	""".format(origin_process=doc_name)
 
 	data = frappe.db.sql(sql_str, as_dict=1)
@@ -368,10 +370,12 @@ def get_details(doc_name, so_header):
 		shipping_address, reference_1, reference_2, reference_3, year_week, product_qty
 		from tabqp_tmp_sales_orders
 		where origin_process = '{origin_process}' and company = '{company}'
-		and category = '{category}' and reference_1 = '{reference_1}' and year_week = '{year_week}' and currency = '{currency}'
-		order by company, category, reference_1, year_week, product, currency
+		and category = '{category}' and reference_1 = '{reference_1}' and year_week = '{year_week}'
+		and currency = '{currency}' and reference_2 = '{reference_2}'
+		order by company, category, reference_1, year_week, product, currency, reference_2
 	""".format(origin_process=doc_name, company=so_header.get('company'), category=so_header.get('category'),
-		reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'),currency=so_header.get('currency'))
+		reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'),
+		currency=so_header.get('currency'), reference_2=so_header.get('reference_2'))
 
 	item_data = frappe.db.sql(sql_str, as_dict=1)
 
@@ -386,10 +390,11 @@ def search_sales_order(item_customer, so_header):
 		where company = '{company}' and customer = '{customer}'
 		and qp_category = '{category}'
 		and currency = '{currency}'
-		and qp_reference1 = '{reference_1}' and qp_year_week = '{year_week}'
+		and qp_reference1 = '{reference_1}' and qp_year_week = '{year_week}' and qp_reference2 = '{reference_2}'
 	""".format(company=so_header.get('company'), customer=item_customer,
 		category=so_header.get('category'),
-		reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'), currency = so_header.get('currency'))
+		reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'),
+		currency = so_header.get('currency'), reference_2=so_header.get('reference_2'))
 
 	rec_so = frappe.db.sql(so_sql, as_dict=1)
 
@@ -427,10 +432,10 @@ def __get_invalid_week_number(doc_name):
 def __duplicate_products(doc_name):
 
 	sql_str = """
-		select company, category, reference_1, year_week, product, item_type, count(product) as count_prod,currency
+		select company, category, reference_1, year_week, product, item_type, currency, reference_2, count(product) as count_prod
 		from tabqp_tmp_sales_orders
 		where origin_process = '{origin_process}'
-		group by company, category, reference_1, year_week, product, item_type, currency
+		group by company, category, reference_1, year_week, product, item_type, currency, reference_2
 		having count_prod > 1
 	""".format(origin_process=doc_name)
 
@@ -516,12 +521,12 @@ def __group_by_currency(doc_name):
 	# Validar que sea un mismo tipo de moneda por sales order a crear
 	sql_str = """
 		Select count(currency) as curr from (
-			select company, category, reference_1, year_week, currency
+			select company, category, reference_1, year_week, reference_2, currency
 			from tabqp_tmp_sales_orders
 			where origin_process = '{origin_process}'
-			group by  company, category, reference_1, year_week, currency 
+			group by  company, category, reference_1, year_week, reference_2, currency
 		) as dbtbl
-		group by company, category, reference_1, year_week
+		group by company, category, reference_1, year_week, reference_2 
 		having curr > 1
 	""".format(origin_process=doc_name)
 	res = frappe.db.sql(sql_str, as_dict=1)
@@ -534,12 +539,12 @@ def __group_by_shipping_address(doc_name):
 	# Validar que sea un mismo tipo de dirección de envío por sales order a crear
 	sql_str = """
 		Select count(shipping_address) as ship_addr from (
-			select company, category, reference_1, year_week, shipping_address, currency
+			select company, category, reference_1, year_week, shipping_address, currency, reference_2
 			from tabqp_tmp_sales_orders
 			where origin_process = '{origin_process}'
-			group by  company, category, reference_1, year_week, shipping_address,currency
+			group by  company, category, reference_1, year_week, shipping_address, currency, reference_2
 		) as dbtbl
-		group by company, category, reference_1, year_week,currency
+		group by company, category, reference_1, year_week, currency, reference_2
 		having ship_addr > 1
 	""".format(origin_process=doc_name)
 	res = frappe.db.sql(sql_str, as_dict=1)
@@ -554,7 +559,7 @@ def __group_by_shipping_address(doc_name):
 			from tabqp_tmp_sales_orders as tso
 			left outer join tabAddress as addr on tso.shipping_address = addr.name
 			where tso.origin_process = '{origin_process}' and addr.name is Null and tso.shipping_address is not Null
-			group by  tso.company, tso.category, tso.reference_1, tso.year_week, tso.shipping_address,tso.currency
+			group by  tso.company, tso.category, tso.reference_1, tso.year_week, tso.shipping_address, tso.currency, tso.reference_2
 		""".format(origin_process=doc_name)
 		res = frappe.db.sql(sql_str, as_dict=1)
 
@@ -626,17 +631,18 @@ def is_other_currency(doc_name, item_customer):
 
 	so_sql = """
 		SELECT drb_so.name FROM
-			(select company, category, reference_1, year_week, currency
+			(select company, category, reference_1, year_week, currency, reference_2
 			from tabqp_tmp_sales_orders
 			where origin_process = '{origin_process}'
-			group by  company, category, reference_1, year_week, currency) as drb_temp
+			group by  company, category, reference_1, year_week, currency, reference_2) as drb_temp
 		INNER JOIN
-			(select name, company, qp_category, qp_reference1, qp_year_week, currency
+			(select name, company, qp_category, qp_reference1, qp_year_week, currency, qp_reference2
 			from `tabSales Order`
 			where customer = '{customer}') as drb_so
 			ON drb_temp.company = drb_so.company and drb_temp.category = drb_so.qp_category
 			and drb_temp.reference_1 = drb_so.qp_reference1
 			and drb_temp.year_week = drb_so.qp_year_week
+			and drb_temp.reference_2 = drb_so.qp_reference2
 		WHERE drb_temp.currency != drb_so.currency
 	""".format(origin_process=doc_name, customer=item_customer)
 
