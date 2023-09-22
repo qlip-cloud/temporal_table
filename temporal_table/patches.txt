@@ -1,0 +1,1 @@
+temporal_table.patches.v13_0.set_reference2_empty
