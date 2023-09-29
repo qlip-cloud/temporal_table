@@ -413,15 +413,13 @@ def prepare_process_history(doc_process):
 
 def __get_invalid_week_number(doc_name):
 
-	now_week_number = datetime.datetime.now().isocalendar()
+	now_iso_week_number = datetime.datetime.now().isocalendar()
 
-	week_number = "{0}-{1}".format(now_week_number[0], str(now_week_number[1]).rjust(2, '0'))
+	week_number = "{0}-{1}".format(now_iso_week_number[0], str(now_iso_week_number[1]).rjust(2, '0'))
 
-	day_week_number	= datetime.date.fromisocalendar(now_week_number[0], now_week_number[1], now_week_number[2]).day
+	curr_week_number = str(now_iso_week_number[0]) + '-' + str(now_iso_week_number[1]).rjust(2, '0') + '-' + str(now_iso_week_number[2])
 
-	curr_now_week_number = str(now_week_number[0]) + '-' + str(now_week_number[1]).rjust(2, '0') + '-' + str(day_week_number).rjust(2, '0')
-
-	# Validar que year_week esté vigente (se verifica los dos formatos que se manejan: 'yyyy-ww' y 'yyyy-ww-dd')
+	# Validar que year_week esté vigente (se verifica los dos formatos que se manejan: 'yyyy-ww' y 'yyyy-ww-wd')
 	sql_str = """
 		Select year_week
 		from tabqp_tmp_sales_orders
@@ -429,8 +427,12 @@ def __get_invalid_week_number(doc_name):
 		UNION ALL
 		Select year_week
 		from tabqp_tmp_sales_orders
-		where origin_process = '{origin_process}' and LENGTH(year_week) = 10 and year_week < '{curr_now_week_number}'
-	""".format(origin_process=doc_name, now_week_number=week_number, curr_now_week_number=curr_now_week_number)
+		where origin_process = '{origin_process}' and LENGTH(year_week) = 9 and year_week < '{now_curr_week_number}'
+		UNION ALL
+		Select year_week
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}' and LENGTH(year_week) not in (7, 9)
+	""".format(origin_process=doc_name, now_week_number=week_number, now_curr_week_number=curr_week_number)
 	res = frappe.db.sql(sql_str, as_dict=1)
 
 	return res and True or False
@@ -591,16 +593,39 @@ def __get_uom_from_list(item_name, item_uom):
 
 def __transform_year_week(year_week):
 
-	res = getdate()
-
 	date_content = year_week.split('-')
 
-	if len(date_content) == 2:
+	if len(date_content) == 3:
+
+		dates_dict = __get_week_dates()
+
+		res = dates_dict[year_week] # Se asume que debe existir en la lista la llave a consultar
+
+	else:
 
 		param_year = "{0}-W{1}".format(date_content[0], date_content[1])
 
 		# primer lunes de la semana
 		res = datetime.datetime.strptime(param_year + '-1', "%Y-W%W-%w")
+
+	return res
+
+
+def __get_week_dates():
+
+	res = {}
+
+	current_week = datetime.datetime.now().isocalendar()
+
+	for x in range(current_week[2], 8):
+
+		p_day = datetime.date.fromisocalendar(current_week[0], current_week[1], x).day
+		p_month = datetime.date.fromisocalendar(current_week[0], current_week[1], x).month
+		p_year = datetime.date.fromisocalendar(current_week[0], current_week[1], x).year
+
+		p_key =  "{0}-{1}-{2}".format(current_week[0], current_week[1], x)
+
+		res[p_key] = datetime.datetime(p_year, p_month, p_day, 0, 0, 00, 00000).strftime("%Y-%m-%d")
 
 	return res
 
