@@ -2,7 +2,7 @@ import frappe
 from frappe import _
 import datetime
 
-from frappe.utils import now, flt
+from frappe.utils import now, flt, getdate
 from frappe.utils.xlsxutils import (
 	read_xlsx_file_from_attached_file,
 	read_xls_file_from_attached_file,
@@ -101,7 +101,7 @@ def load_tmp_sales_order(doc):
 					"shipping_address": None if row_item[indx-4] == "None" or row_item[indx-4] == None else row_item[indx-4],
 					"reference_1": None if row_item[indx-3] == "None" or row_item[indx-3] == None else row_item[indx-3],
 					"reference_2": "" if row_item[indx-2] == "None" or row_item[indx-2] == None else row_item[indx-2],
-					"reference_3": None if row_item[indx-1] == "None" or row_item[indx-1] == None else row_item[indx-1],
+					"reference_3": "" if row_item[indx-1] == "None" or row_item[indx-1] == None else row_item[indx-1],
 					"year_week": row_header[i],
 					"product_qty": row_item[i+indx],
 					"origin_process": doc.name,
@@ -413,17 +413,26 @@ def prepare_process_history(doc_process):
 
 def __get_invalid_week_number(doc_name):
 
-	now_week_number = datetime.datetime.now().isocalendar()
+	now_iso_week_number = datetime.datetime.now().isocalendar()
 
-	week_number = "{0}-{1}".format(now_week_number[0], str(now_week_number[1]).rjust(2, '0'))
+	week_number = "{0}-{1}".format(now_iso_week_number[0], str(now_iso_week_number[1]).rjust(2, '0'))
 
-	# Validar que year_week estés vigentes
+	curr_week_number = str(now_iso_week_number[0]) + '-' + str(now_iso_week_number[1]).rjust(2, '0') + '-' + str(now_iso_week_number[2])
+
+	# Validar que year_week esté vigente (se verifica los dos formatos que se manejan: 'yyyy-ww' y 'yyyy-ww-wd')
 	sql_str = """
 		Select year_week
 		from tabqp_tmp_sales_orders
-		where origin_process = '{origin_process}' 
-		and CONCAT(SUBSTRING_INDEX(year_week, '-', 1), '-', LPAD(SUBSTRING_INDEX(year_week, '-', -1), 2,'0')) <= '{now_week_number}'
-	""".format(origin_process=doc_name, now_week_number=week_number)
+		where origin_process = '{origin_process}' and LENGTH(year_week) = 7 and year_week <= '{now_week_number}'
+		UNION ALL
+		Select year_week
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}' and LENGTH(year_week) = 9 and year_week < '{now_curr_week_number}'
+		UNION ALL
+		Select year_week
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}' and LENGTH(year_week) not in (7, 9)
+	""".format(origin_process=doc_name, now_week_number=week_number, now_curr_week_number=curr_week_number)
 	res = frappe.db.sql(sql_str, as_dict=1)
 
 	return res and True or False
@@ -586,10 +595,39 @@ def __transform_year_week(year_week):
 
 	date_content = year_week.split('-')
 
-	param_year = "{0}-W{1}".format(date_content[0], date_content[1])
+	if len(date_content) == 3:
 
-	# primer lunes de la semana
-	return datetime.datetime.strptime(param_year + '-1', "%Y-W%W-%w")
+		dates_dict = __get_week_dates()
+
+		res = dates_dict[year_week] # Se asume que debe existir en la lista la llave a consultar
+
+	else:
+
+		param_year = "{0}-W{1}".format(date_content[0], date_content[1])
+
+		# primer lunes de la semana
+		res = datetime.datetime.strptime(param_year + '-1', "%Y-W%W-%w")
+
+	return res
+
+
+def __get_week_dates():
+
+	res = {}
+
+	current_week = datetime.datetime.now().isocalendar()
+
+	for x in range(current_week[2], 8):
+
+		p_day = datetime.date.fromisocalendar(current_week[0], current_week[1], x).day
+		p_month = datetime.date.fromisocalendar(current_week[0], current_week[1], x).month
+		p_year = datetime.date.fromisocalendar(current_week[0], current_week[1], x).year
+
+		p_key =  "{0}-{1}-{2}".format(current_week[0], current_week[1], x)
+
+		res[p_key] = datetime.datetime(p_year, p_month, p_day, 0, 0, 00, 00000).strftime("%Y-%m-%d")
+
+	return res
 
 
 def __get_item_customer(origin_process, param_customer, param_company):
