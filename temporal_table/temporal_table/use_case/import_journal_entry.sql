@@ -280,7 +280,7 @@ BEGIN
                 je.finance_book,
                 je.posting_date, jea.account, jea.party_type, jea.party,
                 jea.debit, jea.credit, jea.account_currency, jea.debit_in_account_currency, jea.credit_in_account_currency,
-                je.voucher_type, je.name as voucher_no,  je.is_opening, jea.is_advance,
+                'Journal Entry' as voucher_type, je.name as voucher_no,  je.is_opening, jea.is_advance,
                 gle_fiscal_year as fiscal_year, je.company,  '1' as to_rename, 0 as is_cancelled
                 FROM `tabJournal Entry Account` as jea
                 INNER JOIN `tabJournal Entry` as je on jea.parent = je.name and jea.parent = je_name and jea.parentfield = 'accounts'
