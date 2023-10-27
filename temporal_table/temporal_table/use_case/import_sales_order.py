@@ -8,7 +8,6 @@ from frappe.utils.xlsxutils import (
 	read_xls_file_from_attached_file,
 )
 
-import datetime
 
 from erpnext.controllers.website_list_for_contact import get_customers_suppliers
 
@@ -619,9 +618,13 @@ def __get_week_dates():
 
 	for x in range(current_week[2], 8):
 
-		p_day = datetime.date.fromisocalendar(current_week[0], current_week[1], x).day
-		p_month = datetime.date.fromisocalendar(current_week[0], current_week[1], x).month
-		p_year = datetime.date.fromisocalendar(current_week[0], current_week[1], x).year
+		date_format = "{} {} {}".format(current_week[0], current_week[1], x)
+
+		res_format = datetime.datetime.strptime(date_format, '%G %V %u')
+
+		p_day = res_format.day
+		p_month = res_format.month
+		p_year = res_format.year
 
 		p_key =  "{0}-{1}-{2}".format(current_week[0], current_week[1], x)
 
