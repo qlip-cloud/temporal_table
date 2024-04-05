@@ -133,6 +133,9 @@ def load_sales_order(doc):
 
 	data = get_headers(doc.name)
 
+	# Listar los sales order a modificar antes de empezar el proceso
+	set_sales_order_upd(item_customer, data)
+
 	for so_header in data:
 
 		updt_new_rec = __check_new_order_with_update(doc.name, item_customer, so_header)
@@ -230,12 +233,14 @@ def load_sales_order(doc):
 			order_items.append(data_so)
 
 		# Verificar si existe para actualizar en lugar de insertar
-		rec_so = search_sales_order(item_customer, so_header)
+		rec_so = so_header.get('rec_so')
+		print("so_header", so_header)
+		print("rec_so", rec_so)
 
 		if rec_so:
 			#Update
 
-			so_obj = frappe.get_doc('Sales Order', rec_so[0].name)
+			so_obj = frappe.get_doc('Sales Order', rec_so)
 
 			so_obj.items = []
 
@@ -247,6 +252,9 @@ def load_sales_order(doc):
 				so_obj.shipping_address_name = item_shipping_address
 
 			# Actualizar reference_1/reference_2 si aplica
+			so_obj.qp_reference1_old = so_obj.qp_reference1
+			so_obj.qp_reference2_old = so_obj.qp_reference2
+
 			upd_reference_1, upd_reference_2 = __get_new_reference(doc.name, so_header)
 
 			if upd_reference_1 and so_obj.qp_reference1 != upd_reference_1:
@@ -279,7 +287,9 @@ def load_sales_order(doc):
 				"delivery_date": delivery_date,
 				"qp_year_week": so_header.get('year_week'),
 				"qp_reference1": so_header.get('reference_1'),
+				"qp_reference1_old": so_header.get('reference_1'),
 				"qp_reference2": so_header.get('reference_2'),
+				"qp_reference2_old": so_header.get('reference_2'),
 				"qp_reference3": item.get('reference_3'),
 				"qp_category": so_header.get('category'),
 				"qp_origin_process": doc.name,
@@ -334,13 +344,9 @@ def validate_so2save(doc_name, doc_company):
 
 		msg_res += _("There is different shipping address for a document or there is no shipping address<br>\n")
 
-	if __group_by_new_reference_1(doc_name):
+	if __group_by_new_references(doc_name):
 
-		msg_res += _("There is different New reference 1 for a document<br>\n")
-
-	if __group_by_new_reference_2(doc_name):
-
-		msg_res += _("There is different New reference 2 for a document<br>\n")
+		msg_res += _("There is different New reference 1 and/or New reference 2 for a document<br>\n")
 
 	# Validar year_week
 	if __get_invalid_week_number(doc_name):
@@ -360,7 +366,7 @@ def validate_so2save(doc_name, doc_company):
 def is_duplicated(doc_name, item_customer):
 
 	sql_str = """
-		select count(name) from
+		select count(*) as cuenta from
 		(select company, category, reference_1, year_week, currency, reference_2
 		from tabqp_tmp_sales_orders
 		where origin_process = '{origin_process}'
@@ -370,8 +376,9 @@ def is_duplicated(doc_name, item_customer):
 		and so.qp_reference2 = temp.reference_2
 		Where so.customer = '{customer}'
 		group by so.company, so.customer, so.qp_category, so.qp_reference1, so.qp_year_week, so.currency, so.qp_reference2
-		having count(name) > 1
+		having cuenta > 1
 	""".format(origin_process=doc_name, customer=item_customer)
+	print("is_duplicated sql_str -->>", sql_str)
 	data = frappe.db.sql(sql_str, as_dict=1)
 	print("is_duplicated data -->>", data)
 
@@ -385,11 +392,11 @@ def is_duplicated(doc_name, item_customer):
 
 		# Al editar reference_1 y reference_2 se debe verificar que no exista dicha orden en el sistema
 		sql_str = """
-			select count(name) from
+			select count(*) as cuenta from
 			(select company, category,
 			CASE WHEN new_reference_1 is null or new_reference_1 = '' THEN reference_1 ELSE new_reference_1 END as reference_1,
 			year_week, currency,
-			CASE WHEN new_reference_2 is null or new_reference_2 = '' THEN reference_1 ELSE new_reference_2 END as reference_2
+			CASE WHEN new_reference_2 is null or new_reference_2 = '' THEN reference_2 ELSE new_reference_2 END as reference_2
 			from tabqp_tmp_sales_orders
 			where origin_process = '{origin_process}'
 			group by  company, category, reference_1, year_week, currency, reference_2) as temp
@@ -398,8 +405,9 @@ def is_duplicated(doc_name, item_customer):
 			and so.qp_reference2 = temp.reference_2
 			Where so.customer = '{customer}'
 			group by so.company, so.customer, so.qp_category, so.qp_reference1, so.qp_year_week, so.currency, so.qp_reference2
-			having count(name) > 1
+			having cuenta > 1
 		""".format(origin_process=doc_name, customer=item_customer)
+		print("else is_duplicated sql_str -->>", sql_str)
 		data = frappe.db.sql(sql_str, as_dict=1)
 		print("else is_duplicated data -->>", data)
 
@@ -458,6 +466,30 @@ def search_sales_order(item_customer, so_header):
 
 	return rec_so
 
+def set_sales_order_upd(item_customer, data):
+	# En sustitución del método search_sales_order al tener que editar reference1 y reference2
+
+	for so_header in data:
+		so_header['rec_so'] = ''
+
+		so_sql = """
+			select name
+			from `tabSales Order`
+			where company = '{company}' and customer = '{customer}'
+			and qp_category = '{category}'
+			and currency = '{currency}'
+			and qp_reference1 = '{reference_1}' and qp_year_week = '{year_week}' and qp_reference2 = '{reference_2}'
+		""".format(company=so_header.get('company'), customer=item_customer,
+			category=so_header.get('category'),
+			reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'),
+			currency = so_header.get('currency'), reference_2=so_header.get('reference_2'))
+		rec_so = frappe.db.sql(so_sql, as_dict=1)
+
+		if rec_so and len(rec_so) == 1:
+			so_header['rec_so'] = rec_so[0].name
+		elif len(rec_so) > 1:
+			# Por temas de validaciones previas nunca debería pasar por acá
+			raise Exception("set_sales_order_upd: Sales Order duplicated in document.")
 
 def prepare_process_history(doc_process):
 
@@ -646,11 +678,11 @@ def __group_by_shipping_address(doc_name):
 
 	return result
 
-def __group_by_new_reference_1(doc_name):
+def __group_by_new_references(doc_name):
 
-	# Validar que sea un mismo registro de new_reference_1 por sales order a crear
+	# Validar que sea un mismo registro de new_reference_1 y/o new_reference_2 por sales order a crear
 	sql_str = """
-		Select count(new_reference_1) as new_reference_1 from (
+		Select count(*) as cuenta from (
 			select company, category,
 			reference_1, new_reference_1,
 			year_week, currency,
@@ -660,37 +692,14 @@ def __group_by_new_reference_1(doc_name):
 			group by  company, category, reference_1, new_reference_1, year_week, currency, reference_2, new_reference_2
 		) as dbtbl
 		group by company, category, reference_1, year_week, currency, reference_2
-		having new_reference_1 > 1
+		having cuenta > 1
 	""".format(origin_process=doc_name)
+
 	res = frappe.db.sql(sql_str, as_dict=1)
 
-	print("__group_by_new_reference_1 res -->>", res)
+	print("__group_by_new_references res -->>", res)
 
 	return res and True or False
-
-
-def __group_by_new_reference_2(doc_name):
-
-	# Validar que sea un mismo registro de new_reference_2 por sales order a crear
-	sql_str = """
-		Select count(new_reference_2) as new_reference_2 from (
-			select company, category,
-			reference_1, new_reference_1,
-			year_week, currency,
-			reference_2, new_reference_2
-			from tabqp_tmp_sales_orders
-			where origin_process = '{origin_process}'
-			group by  company, category, reference_1, new_reference_1, year_week, currency, reference_2, new_reference_2
-		) as dbtbl
-		group by company, category, reference_1, year_week, currency, reference_2
-		having new_reference_2 > 1
-	""".format(origin_process=doc_name)
-	res = frappe.db.sql(sql_str, as_dict=1)
-
-	print("__group_by_new_reference_2 res -->>", res)
-
-	return res and True or False
-
 
 def __check_new_order_with_update(doc_name, item_customer, so_header):
 	print("__check_new_order_with_update so_header", so_header)

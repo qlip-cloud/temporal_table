@@ -60,6 +60,8 @@ doctype_js = {"Company" : "public/js/company.js"}
 # before_install = "temporal_table.install.before_install"
 # after_install = "temporal_table.install.after_install"
 
+after_migrate = "temporal_table.temporal_table.use_case.sales_order.add_index"
+
 # Desk Notifications
 # ------------------
 # See frappe.core.notifications.get_notification_config
