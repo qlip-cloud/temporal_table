@@ -126,6 +126,11 @@ def load_sales_order(doc):
 	# Si no hay registrado un cliente se toma el cliente seleccionado por el usuario tomado del doc advanced
 	item_customer = __get_item_customer(doc.name, doc.customer, doc.company)
 
+	# Se agrega validación para evitar ediciones rebuscadas que puedan generar duplicación de ordenes
+	if is_inconsistent(doc.name):
+
+		raise Exception("The document may generate inconsistency, edits in references may generate duplication: {}".format(doc.name))
+
 	# Se agrega validación para garantizar que hay un único SO para cada cabecera
 	if is_duplicated(doc.name, item_customer):
 
@@ -234,8 +239,6 @@ def load_sales_order(doc):
 
 		# Verificar si existe para actualizar en lugar de insertar
 		rec_so = so_header.get('rec_so')
-		print("so_header", so_header)
-		print("rec_so", rec_so)
 
 		if rec_so:
 			#Update
@@ -317,9 +320,6 @@ def load_sales_order(doc):
 
 def validate_so2save(doc_name, doc_company):
 
-	print("validate_so2save -->> doc_name", doc_name)
-	print("validate_so2save -->> doc_company", doc_company)
-
 	msg_res = ""
 
 	# Validar campos
@@ -363,6 +363,26 @@ def validate_so2save(doc_name, doc_company):
 	return msg_res and True or False, msg_res
 
 
+def is_inconsistent(doc_name):
+
+
+	sql_str = """
+		select count(*) as cuenta from (
+			select distinct company, category, reference_1, new_reference_1, year_week, currency, reference_2, new_reference_2,
+			CASE WHEN new_reference_1 is null or new_reference_1 = '' THEN reference_1 ELSE new_reference_1 END as res_reference_1,
+			CASE WHEN new_reference_2 is null or new_reference_2 = '' THEN reference_2 ELSE new_reference_2 END as res_reference_2
+			from tabqp_tmp_sales_orders
+			where origin_process = '{origin_process}'
+		) as temp_so
+		group by company, category, res_reference_1, year_week, currency, res_reference_2
+		having cuenta > 1
+	""".format(origin_process=doc_name)
+
+	data = frappe.db.sql(sql_str, as_dict=1)
+
+	return data and True or False
+
+
 def is_duplicated(doc_name, item_customer):
 
 	sql_str = """
@@ -378,9 +398,8 @@ def is_duplicated(doc_name, item_customer):
 		group by so.company, so.customer, so.qp_category, so.qp_reference1, so.qp_year_week, so.currency, so.qp_reference2
 		having cuenta > 1
 	""".format(origin_process=doc_name, customer=item_customer)
-	print("is_duplicated sql_str -->>", sql_str)
+
 	data = frappe.db.sql(sql_str, as_dict=1)
-	print("is_duplicated data -->>", data)
 
 	res = data and True or False
 
@@ -407,9 +426,8 @@ def is_duplicated(doc_name, item_customer):
 			group by so.company, so.customer, so.qp_category, so.qp_reference1, so.qp_year_week, so.currency, so.qp_reference2
 			having cuenta > 1
 		""".format(origin_process=doc_name, customer=item_customer)
-		print("else is_duplicated sql_str -->>", sql_str)
+
 		data = frappe.db.sql(sql_str, as_dict=1)
-		print("else is_duplicated data -->>", data)
 
 		return data and True or False
 
@@ -540,8 +558,6 @@ def __duplicate_products(doc_name):
 
 	data = frappe.db.sql(sql_str, as_dict=1)
 
-	print("__duplicate_products data -->>", data)
-
 	return data and True or False, [x.product for x in data]
 
 
@@ -557,7 +573,6 @@ def __multiple_companies(doc_name, doc_company):
 		where origin_process = '{origin_process}'
 	""".format(origin_process=doc_name)
 	res = frappe.db.sql(sql_str, as_dict=1)
-	print("__multiple_companies res-->>", res)
 
 	if len(res) == 1 and doc_company == res[0].company:
 
@@ -579,7 +594,6 @@ def __products_belong_to_company(doc_name):
 		group by product
 	""".format(origin_process=doc_name)
 	res_prod = frappe.db.sql(sql_str, as_dict=1)
-	print("__products_belong_to_company res_prod -->>", res_prod)
 
 	sql_str = """
 		select count(tmp_so.product) as prodt_tot
@@ -592,13 +606,11 @@ def __products_belong_to_company(doc_name):
 		group by tmp_so.product
 	""".format(origin_process=doc_name)
 	res = frappe.db.sql(sql_str, as_dict=1)
-	print("__products_belong_to_company res -->>", res)
 
 	if res_prod and res and res_prod[0]['prodt_tot'] == res[0]['prodt_tot']:
 
 		result = False
 
-	print("__products_belong_to_company result -->>", result)
 	return result
 
 def __store_belong_to_company(doc_name, doc_company):
@@ -618,8 +630,6 @@ def __store_belong_to_company(doc_name, doc_company):
 	""".format(origin_process=doc_name, company_id = doc_company)
 	res = frappe.db.sql(sql_str, as_dict=1)
 
-	print("__store_belong_to_company res -->>", res)
-
 	return res and True or False
 
 
@@ -638,8 +648,6 @@ def __group_by_currency(doc_name):
 	""".format(origin_process=doc_name)
 	res = frappe.db.sql(sql_str, as_dict=1)
 
-	print("__group_by_currency res -->>", res)
-
 	return res and True or False
 
 
@@ -657,8 +665,6 @@ def __group_by_shipping_address(doc_name):
 		having ship_addr > 1
 	""".format(origin_process=doc_name)
 	res = frappe.db.sql(sql_str, as_dict=1)
-
-	print("__group_by_shipping_address res -->>", res)
 
 	result = res and True or False
 
@@ -697,12 +703,9 @@ def __group_by_new_references(doc_name):
 
 	res = frappe.db.sql(sql_str, as_dict=1)
 
-	print("__group_by_new_references res -->>", res)
-
 	return res and True or False
 
 def __check_new_order_with_update(doc_name, item_customer, so_header):
-	print("__check_new_order_with_update so_header", so_header)
 
 	so_sql = """
 		select name
@@ -717,7 +720,6 @@ def __check_new_order_with_update(doc_name, item_customer, so_header):
 		currency = so_header.get('currency'), reference_2=so_header.get('reference_2'))
 
 	rec_so = frappe.db.sql(so_sql, as_dict=1)
-	print("__check_new_order_with_update rec_so -->>", rec_so)
 
 	if rec_so:
 
@@ -743,7 +745,6 @@ def __check_new_order_with_update(doc_name, item_customer, so_header):
 			currency = so_header.get('currency'), reference_2=so_header.get('reference_2'))
 
 		data = frappe.db.sql(sql_str, as_dict=1)
-		print("__check_new_order_with_update data -->>", data)
 
 		return data and True or False
 
