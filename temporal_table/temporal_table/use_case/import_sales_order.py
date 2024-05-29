@@ -61,7 +61,7 @@ def import_tso(doc):
 
 def load_tmp_sales_order(doc):
 
-	indx = 15
+	indx = 17
 	data = []
 
 	frappe.db.sql("delete from `tabqp_tmp_sales_orders` where origin_process = '{0}'".format(doc.name))
@@ -83,23 +83,25 @@ def load_tmp_sales_order(doc):
 	for i in range(len(row_header)):
 		for row_item in content_list:
 
-			if row_item[3] and row_item[i+indx] and int(row_item[i+indx]) > 0:
-				# se salta descripción del producto (indx - 10)
+			if row_item[5] and row_item[i+indx] and int(row_item[i+indx]) > 0:
+				# se salta descripción del producto (indx - 12)
 				obj_data = {
-					"company": doc.company if row_item[indx-15] == "None" or row_item[indx-15] == None else row_item[indx-15],
-					"customer": None if row_item[indx-14] == "None" or row_item[indx-14] == None else row_item[indx-14],
-					"store": None if row_item[indx-13] == "None" or row_item[indx-13] == None else row_item[indx-13],
-					"product": None if row_item[indx-12] == "None" or row_item[indx-12] == None else row_item[indx-12],
-					"item_type": None if row_item[indx-11] == "None" or row_item[indx-11] == None else row_item[indx-11],
-					"category": None if row_item[indx-9] == "None" or row_item[indx-9] == None else row_item[indx-9],
-					"uom": None if row_item[indx-8] == "None" or row_item[indx-8] == None else row_item[indx-8],
-					"price": None if row_item[indx-7] == "None" or row_item[indx-7] == None else row_item[indx-7],
-					"empty_price": 1 if row_item[indx-7] == "None" or row_item[indx-7] == None else 0,
-					"discount": None if row_item[indx-6] == "None" or row_item[indx-6] == None else row_item[indx-6],
-					"currency": None if row_item[indx-5] == "None" or row_item[indx-5] == None else row_item[indx-5],
-					"shipping_address": None if row_item[indx-4] == "None" or row_item[indx-4] == None else row_item[indx-4],
-					"reference_1": None if row_item[indx-3] == "None" or row_item[indx-3] == None else row_item[indx-3],
-					"reference_2": "" if row_item[indx-2] == "None" or row_item[indx-2] == None else row_item[indx-2],
+					"company": doc.company if row_item[indx-17] == "None" or row_item[indx-17] == None else row_item[indx-17],
+					"customer": None if row_item[indx-16] == "None" or row_item[indx-16] == None else row_item[indx-16],
+					"store": None if row_item[indx-15] == "None" or row_item[indx-15] == None else row_item[indx-15],
+					"product": None if row_item[indx-14] == "None" or row_item[indx-14] == None else row_item[indx-14],
+					"item_type": None if row_item[indx-13] == "None" or row_item[indx-13] == None else row_item[indx-13],
+					"category": None if row_item[indx-11] == "None" or row_item[indx-11] == None else row_item[indx-11],
+					"uom": None if row_item[indx-10] == "None" or row_item[indx-10] == None else row_item[indx-10],
+					"price": None if row_item[indx-9] == "None" or row_item[indx-9] == None else row_item[indx-9],
+					"empty_price": 1 if row_item[indx-9] == "None" or row_item[indx-9] == None else 0,
+					"discount": None if row_item[indx-8] == "None" or row_item[indx-8] == None else row_item[indx-8],
+					"currency": None if row_item[indx-7] == "None" or row_item[indx-7] == None else row_item[indx-7],
+					"shipping_address": None if row_item[indx-6] == "None" or row_item[indx-6] == None else row_item[indx-6],
+					"reference_1": None if row_item[indx-5] == "None" or row_item[indx-5] == None else row_item[indx-5],
+					"new_reference_1": None if row_item[indx-4] == "None" or row_item[indx-4] == None else row_item[indx-4],
+					"reference_2": "" if row_item[indx-3] == "None" or row_item[indx-3] == None else row_item[indx-3],
+					"new_reference_2": "" if row_item[indx-2] == "None" or row_item[indx-2] == None else row_item[indx-2],
 					"reference_3": "" if row_item[indx-1] == "None" or row_item[indx-1] == None else row_item[indx-1],
 					"year_week": row_header[i],
 					"product_qty": row_item[i+indx],
@@ -124,12 +126,28 @@ def load_sales_order(doc):
 	# Si no hay registrado un cliente se toma el cliente seleccionado por el usuario tomado del doc advanced
 	item_customer = __get_item_customer(doc.name, doc.customer, doc.company)
 
+	# Se agrega validación para evitar ediciones rebuscadas que puedan generar duplicación de ordenes
+	if is_inconsistent(doc.name):
+
+		raise Exception("The document may generate inconsistency, edits in references may generate duplication: {}".format(doc.name))
+
 	# Se agrega validación para garantizar que hay un único SO para cada cabecera
 	if is_duplicated(doc.name, item_customer):
 
 		raise Exception("Sales Order duplicated in document: {}".format(doc.name))
 
 	data = get_headers(doc.name)
+
+	# Listar los sales order a modificar antes de empezar el proceso
+	set_sales_order_upd(item_customer, data)
+
+	for so_header in data:
+
+		updt_new_rec = __check_new_order_with_update(doc.name, item_customer, so_header)
+
+		if updt_new_rec:
+
+			raise Exception("New sales orders with edits in references. Process: {}".format(doc.name))
 
 	# Se agrega validación porque no se permite cambiar la moneda a ordenes de venta ya creadas
 	# NOTA: Al permitir para la misma semana diferentes monedas, no hay manera de detectar cual es la orden a comparar
@@ -220,12 +238,12 @@ def load_sales_order(doc):
 			order_items.append(data_so)
 
 		# Verificar si existe para actualizar en lugar de insertar
-		rec_so = search_sales_order(item_customer, so_header)
+		rec_so = so_header.get('rec_so')
 
 		if rec_so:
 			#Update
 
-			so_obj = frappe.get_doc('Sales Order', rec_so[0].name)
+			so_obj = frappe.get_doc('Sales Order', rec_so)
 
 			so_obj.items = []
 
@@ -235,6 +253,18 @@ def load_sales_order(doc):
 			if item_shipping_address:
 
 				so_obj.shipping_address_name = item_shipping_address
+
+			# Actualizar reference_1/reference_2 si aplica
+			so_obj.qp_reference1_old = so_obj.qp_reference1
+			so_obj.qp_reference2_old = so_obj.qp_reference2
+
+			upd_reference_1, upd_reference_2 = __get_new_reference(doc.name, so_header)
+
+			if upd_reference_1 and so_obj.qp_reference1 != upd_reference_1:
+				so_obj.qp_reference1 = upd_reference_1
+
+			if 	upd_reference_2 and so_obj.qp_reference2 != upd_reference_2:
+				so_obj.qp_reference2 = upd_reference_2
 
 			# Guardar historial de cambios del proceso
 			historial_obj = prepare_process_history(so_obj.qp_origin_process)
@@ -260,7 +290,9 @@ def load_sales_order(doc):
 				"delivery_date": delivery_date,
 				"qp_year_week": so_header.get('year_week'),
 				"qp_reference1": so_header.get('reference_1'),
+				"qp_reference1_old": so_header.get('reference_1'),
 				"qp_reference2": so_header.get('reference_2'),
+				"qp_reference2_old": so_header.get('reference_2'),
 				"qp_reference3": item.get('reference_3'),
 				"qp_category": so_header.get('category'),
 				"qp_origin_process": doc.name,
@@ -312,6 +344,10 @@ def validate_so2save(doc_name, doc_company):
 
 		msg_res += _("There is different shipping address for a document or there is no shipping address<br>\n")
 
+	if __group_by_new_references(doc_name):
+
+		msg_res += _("There is different New reference 1 and/or New reference 2 for a document<br>\n")
+
 	# Validar year_week
 	if __get_invalid_week_number(doc_name):
 
@@ -327,10 +363,30 @@ def validate_so2save(doc_name, doc_company):
 	return msg_res and True or False, msg_res
 
 
+def is_inconsistent(doc_name):
+
+
+	sql_str = """
+		select count(*) as cuenta from (
+			select distinct company, category, reference_1, new_reference_1, year_week, currency, reference_2, new_reference_2,
+			CASE WHEN new_reference_1 is null or new_reference_1 = '' THEN reference_1 ELSE new_reference_1 END as res_reference_1,
+			CASE WHEN new_reference_2 is null or new_reference_2 = '' THEN reference_2 ELSE new_reference_2 END as res_reference_2
+			from tabqp_tmp_sales_orders
+			where origin_process = '{origin_process}'
+		) as temp_so
+		group by company, category, res_reference_1, year_week, currency, res_reference_2
+		having cuenta > 1
+	""".format(origin_process=doc_name)
+
+	data = frappe.db.sql(sql_str, as_dict=1)
+
+	return data and True or False
+
+
 def is_duplicated(doc_name, item_customer):
 
 	sql_str = """
-		select count(name) from
+		select count(*) as cuenta from
 		(select company, category, reference_1, year_week, currency, reference_2
 		from tabqp_tmp_sales_orders
 		where origin_process = '{origin_process}'
@@ -340,11 +396,40 @@ def is_duplicated(doc_name, item_customer):
 		and so.qp_reference2 = temp.reference_2
 		Where so.customer = '{customer}'
 		group by so.company, so.customer, so.qp_category, so.qp_reference1, so.qp_year_week, so.currency, so.qp_reference2
-		having count(name) > 1
+		having cuenta > 1
 	""".format(origin_process=doc_name, customer=item_customer)
+
 	data = frappe.db.sql(sql_str, as_dict=1)
 
-	return data and True or False
+	res = data and True or False
+
+	if res:
+
+		return res
+
+	else:
+
+		# Al editar reference_1 y reference_2 se debe verificar que no exista dicha orden en el sistema
+		sql_str = """
+			select count(*) as cuenta from
+			(select company, category,
+			CASE WHEN new_reference_1 is null or new_reference_1 = '' THEN reference_1 ELSE new_reference_1 END as reference_1,
+			year_week, currency,
+			CASE WHEN new_reference_2 is null or new_reference_2 = '' THEN reference_2 ELSE new_reference_2 END as reference_2
+			from tabqp_tmp_sales_orders
+			where origin_process = '{origin_process}'
+			group by  company, category, reference_1, year_week, currency, reference_2) as temp
+			inner join `tabSales Order` as so on so.company = temp.company and so.qp_category = temp.category
+			and so.qp_reference1 = temp.reference_1 and so.qp_year_week = temp.year_week  and so.currency = temp.currency
+			and so.qp_reference2 = temp.reference_2
+			Where so.customer = '{customer}'
+			group by so.company, so.customer, so.qp_category, so.qp_reference1, so.qp_year_week, so.currency, so.qp_reference2
+			having cuenta > 1
+		""".format(origin_process=doc_name, customer=item_customer)
+
+		data = frappe.db.sql(sql_str, as_dict=1)
+
+		return data and True or False
 
 
 def get_headers(doc_name):
@@ -399,6 +484,30 @@ def search_sales_order(item_customer, so_header):
 
 	return rec_so
 
+def set_sales_order_upd(item_customer, data):
+	# En sustitución del método search_sales_order al tener que editar reference1 y reference2
+
+	for so_header in data:
+		so_header['rec_so'] = ''
+
+		so_sql = """
+			select name
+			from `tabSales Order`
+			where company = '{company}' and customer = '{customer}'
+			and qp_category = '{category}'
+			and currency = '{currency}'
+			and qp_reference1 = '{reference_1}' and qp_year_week = '{year_week}' and qp_reference2 = '{reference_2}'
+		""".format(company=so_header.get('company'), customer=item_customer,
+			category=so_header.get('category'),
+			reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'),
+			currency = so_header.get('currency'), reference_2=so_header.get('reference_2'))
+		rec_so = frappe.db.sql(so_sql, as_dict=1)
+
+		if rec_so and len(rec_so) == 1:
+			so_header['rec_so'] = rec_so[0].name
+		elif len(rec_so) > 1:
+			# Por temas de validaciones previas nunca debería pasar por acá
+			raise Exception("set_sales_order_upd: Sales Order duplicated in document.")
 
 def prepare_process_history(doc_process):
 
@@ -574,6 +683,93 @@ def __group_by_shipping_address(doc_name):
 		result = res and True or False
 
 	return result
+
+def __group_by_new_references(doc_name):
+
+	# Validar que sea un mismo registro de new_reference_1 y/o new_reference_2 por sales order a crear
+	sql_str = """
+		Select count(*) as cuenta from (
+			select company, category,
+			reference_1, new_reference_1,
+			year_week, currency,
+			reference_2, new_reference_2
+			from tabqp_tmp_sales_orders
+			where origin_process = '{origin_process}'
+			group by  company, category, reference_1, new_reference_1, year_week, currency, reference_2, new_reference_2
+		) as dbtbl
+		group by company, category, reference_1, year_week, currency, reference_2
+		having cuenta > 1
+	""".format(origin_process=doc_name)
+
+	res = frappe.db.sql(sql_str, as_dict=1)
+
+	return res and True or False
+
+def __check_new_order_with_update(doc_name, item_customer, so_header):
+
+	so_sql = """
+		select name
+		from `tabSales Order`
+		where company = '{company}' and customer = '{customer}'
+		and qp_category = '{category}'
+		and currency = '{currency}'
+		and qp_reference1 = '{reference_1}' and qp_year_week = '{year_week}' and qp_reference2 = '{reference_2}'
+	""".format(company=so_header.get('company'), customer=item_customer,
+		category=so_header.get('category'),
+		reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'),
+		currency = so_header.get('currency'), reference_2=so_header.get('reference_2'))
+
+	rec_so = frappe.db.sql(so_sql, as_dict=1)
+
+	if rec_so:
+
+		return False
+
+	else:
+
+		sql_str = """
+			select company, category, reference_1, year_week, currency, reference_2
+			from tabqp_tmp_sales_orders
+			where origin_process = '{origin_process}'
+			and company = '{company}'
+			and category = '{category}'
+			and currency = '{currency}'
+			and reference_1 = '{reference_1}' and year_week = '{year_week}' and reference_2 = '{reference_2}'
+			and (new_reference_1 is not null and new_reference_1 != ''
+			or new_reference_2 is not null and new_reference_2 != '')
+			group by company, category, reference_1, year_week, currency, reference_2
+			order by company, category, reference_1, year_week, currency, reference_2
+		""".format(origin_process=doc_name, company=so_header.get('company'),
+			category=so_header.get('category'),
+			reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'),
+			currency = so_header.get('currency'), reference_2=so_header.get('reference_2'))
+
+		data = frappe.db.sql(sql_str, as_dict=1)
+
+		return data and True or False
+
+
+def __get_new_reference(doc_name, so_header):
+
+	# Obtener el valor de la referencia 1 y 2
+	sql_str = """
+		select reference_1, new_reference_1, reference_2, new_reference_2
+		from tabqp_tmp_sales_orders
+		where origin_process = '{origin_process}' and company = '{company}'
+		and category = '{category}' and reference_1 = '{reference_1}' and year_week = '{year_week}'
+		and currency = '{currency}' and reference_2 = '{reference_2}'
+		group by company, category, reference_1, year_week, currency, reference_2
+		order by company, category, reference_1, year_week, currency, reference_2
+	""".format(origin_process=doc_name, company=so_header.get('company'), category=so_header.get('category'),
+		reference_1=so_header.get('reference_1'), year_week=so_header.get('year_week'),
+		currency=so_header.get('currency'), reference_2=so_header.get('reference_2'))
+
+	data = frappe.db.sql(sql_str, as_dict=1)
+
+	ref_1 = data[0].get('new_reference_1') or data[0].get('reference_1')
+	ref_2 = data[0].get('new_reference_2') or ''
+
+	return ref_1, ref_2
 
 
 def __get_uom_from_list(item_name, item_uom):
