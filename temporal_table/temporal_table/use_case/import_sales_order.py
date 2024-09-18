@@ -790,8 +790,6 @@ def __transform_year_week(year_week):
 
 	date_content = year_week.split('-')
 
-	print("date_content", date_content)
-
 	if len(date_content) == 3:
 
 		dates_dict = __get_week_dates()
