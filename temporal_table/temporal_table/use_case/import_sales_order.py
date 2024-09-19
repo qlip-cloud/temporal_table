@@ -829,7 +829,7 @@ def __get_week_dates():
 		p_month = res_format.month
 		p_year = res_format.year
 
-		p_key =  "{0}-{1}-{2}".format(current_week[0], current_week[1], x)
+		p_key =  "{0}-{1}-{2}".format(current_week[0], str(current_week[1]).rjust(2, '0'), x)
 
 		res[p_key] = datetime.datetime(p_year, p_month, p_day, 0, 0, 00, 00000).strftime("%Y-%m-%d")
 
