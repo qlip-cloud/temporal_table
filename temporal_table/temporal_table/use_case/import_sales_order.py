@@ -798,10 +798,17 @@ def __transform_year_week(year_week):
 
 	else:
 
-		param_year = "{0}-W{1}".format(date_content[0], date_content[1])
+		param_year = int(date_content[0])
+		param_week = int(date_content[1])
 
 		# primer lunes de la semana
-		res = datetime.datetime.strptime(param_year + '-1', "%Y-W%W-%w")
+		d = datetime.date(param_year, 1, 1)
+		delta_days = d.isoweekday() - 1
+		delta_weeks = param_week
+		if param_year == d.isocalendar()[0]:
+			delta_weeks -= 1
+		delta = datetime.timedelta(days=-delta_days, weeks=delta_weeks)
+		res = d + delta
 
 	return res
 
@@ -822,7 +829,7 @@ def __get_week_dates():
 		p_month = res_format.month
 		p_year = res_format.year
 
-		p_key =  "{0}-{1}-{2}".format(current_week[0], current_week[1], x)
+		p_key =  "{0}-{1}-{2}".format(current_week[0], str(current_week[1]).rjust(2, '0'), x)
 
 		res[p_key] = datetime.datetime(p_year, p_month, p_day, 0, 0, 00, 00000).strftime("%Y-%m-%d")
 
