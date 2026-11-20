@@ -97,7 +97,34 @@ def _resolve_import_file(abs_site_path, import_file):
 	return csv_path
 
 
+def _is_import_je_enabled():
+	"""
+	Interruptor de la funcionalidad. Desactivada por defecto.
+	Para activarla sin tocar código, en site_config.json:
+	    "enable_import_journal_entry": 1
+	(bench --site <sitio> set-config enable_import_journal_entry 1)
+	"""
+	return bool(frappe.conf.get("enable_import_journal_entry"))
+
+
 def import_je(doc):
+
+	# --- FUNCIONALIDAD DESACTIVADA TEMPORALMENTE ---
+	# Se cierra el documento como Failed para que no quede en 'Active'
+	# (el controlador lo marca Active antes de encolar y eso bloquearía otras cargas).
+	if not _is_import_je_enabled():
+		try:
+			doc.append('import_list', {
+				"status": "Failed",
+				"start_date": now(),
+				"result_message": "Journal Entry import is temporarily disabled.",
+				"finish_date": now()
+			})
+			doc.status = "Failed"
+			doc.save(ignore_permissions=True)
+		except Exception:
+			frappe.log_error(message=frappe.get_traceback(), title="import_je_disabled")
+		return
 
 	# Inicializadas antes del try para que el bloque final no falle con NameError
 	res = ''
